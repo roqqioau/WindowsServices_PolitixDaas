@@ -8,7 +8,7 @@ namespace PolitixDaas
 {
     class LocationsJson
     {
-        public List<LOCATION> LOCATIONS { get; set; }
+        public Location Location { get; set; }
     }
 
 
@@ -49,10 +49,45 @@ namespace PolitixDaas
 
     public class ATTRIBUTE
     {
-        public String CODE { get; set; }
-        public int UNIQUE { get; set; }
-        public int VALUE { get; set; }
-        public String TEXT { get; set; }
+        public String Code { get; set; }
+        public int Unique { get; set; }
+        public int Value { get; set; }
+        public String Text { get; set; }
+    }
+
+    public class Location
+    {
+        public int BranchNo { get; set; }
+        public string Currency { get; set; }
+        public string CurrencyName{ get; set; }
+        public int Region { get; set; }
+        public string RegionName { get; set; }
+        public int PosAccount { get; set; }
+        public string PosAccountName { get; set; }
+        public int ProductAccount { get; set; }
+        public string ProductAccountName { get; set; }
+        public int CostCentre { get; set; }
+        public string CostCentreName { get; set; }
+        public int TaxGroup { get; set; }
+        public string TaxGroupName { get; set; }
+        public string FilIndex { get; set; }
+        public string Language { get; set; }
+        public string Name1 { get; set; }
+        public string Name2 { get; set; }
+        public int Country { get; set; }
+        public string CountryName { get; set; }
+        public string State { get; set; }
+        public string Postcode { get; set; }
+        public string Suburb { get; set; }
+        public string Address { get; set; }
+        public string Phone1 { get; set; }
+        public string Phone2 { get; set; }
+        public string Fax { get; set; }
+        public string Email { get; set; }
+        public int Timezone { get; set; }
+        public string TimezoneName { get; set; }
+        public List<ATTRIBUTE> Attributes { get; set; }
+
     }
 
 

@@ -45,7 +45,7 @@ namespace PolitixDaas
 
         private void timer_tick(Object sender, ElapsedEventArgs e)
         {
-            if (sender != null)
+           // if (sender != null)
                 timer.Enabled = false;
             Logging.lstErrors.Clear();
             Logging.WriteLog("Timer task starts!");

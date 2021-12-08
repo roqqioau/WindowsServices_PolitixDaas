@@ -59,6 +59,7 @@
   <ItemGroup>
     <Compile Include="DCsetup.cs" />
     <Compile Include="DUtils.cs" />
+    <Compile Include="ItemsJson.cs" />
     <Compile Include="LocationsJson.cs" />
     <Compile Include="Logging.cs" />
     <Compile Include="ProjectInstaller.cs">

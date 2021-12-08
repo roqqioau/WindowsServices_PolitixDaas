@@ -14,6 +14,8 @@ namespace PolitixDaas
 
         public String ActiveMQUrl { get; private set; }
         public String LocationsQueueName { get; private set; }
+        public String PricesQueueName { get; private set; }
+        public String ProductsQueueName { get; private set; }
         public String SMTPHost { get; private set; }
         public String SMTPUserName { get; private set; }
         public String SMTPPassword { get; private set; }
@@ -31,28 +33,76 @@ namespace PolitixDaas
         public bool SqlOsAuthentication { get; private set; }
         public int Debug { get; private set; }
         public int MinSendDate { get; private set; }
+        public int ResultSet { get; private set; }
 
  
-        public int LocationUpdate
+        public String LocationUpdate
         {
             get => getLocationUpdate();
             set => setLocationUpdate(value);
         }
 
-        private int getLocationUpdate()
+        private String getLocationUpdate()
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            return anIni.readInteger("System", "LocationUpdate", 0);
+            return anIni.readString("System", "LocationUpdate", "");
         }
 
 
-        private void setLocationUpdate(int value)
+        private void setLocationUpdate(String value)
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            anIni.WriteInteger("System", "LocationUpdate", value);
+            anIni.writeString("System", "LocationUpdate", value);
         }
+
+        public String ProductUpdate
+        {
+            get => getProductUpdate();
+            set => setProductUpdate(value);
+        }
+
+        private String getProductUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "ProductUpdate", "");
+
+        }
+
+        private void setProductUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "ProductUpdate", value);
+        }
+
+
+        public String PriceUpdate
+        {
+            get => getPriceUpdate();
+            set => setPriceUpdate(value);
+        }
+
+        private String getPriceUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "PriceUpdate", "");
+
+        }
+
+        private void setPriceUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "PriceUpdate", value);
+        }
+
+
+
+
         public DCsetup()
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
@@ -85,12 +135,14 @@ namespace PolitixDaas
             String osAuthentic = anIni.readString("SQL", "osauthentication", "0");
             SqlOsAuthentication = osAuthentic.Equals("1") || osAuthentic.ToUpper().Equals("Y");
 
-
+            ResultSet = anIni.readInteger("SYSTEM", "ResultSet", 0);
             Debug = anIni.readInteger("SYSTEM", "Debug", 0);
  
             MinSendDate = anIni.readInteger("SYSTEM", "MinSendDate", 20210301);
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
             LocationsQueueName = anIni.readString("Queues", "Locations", "");
+            ProductsQueueName = anIni.readString("Queues", "Products", "");
+            PricesQueueName = anIni.readString("Queues", "Prices", "");
 
         }
 
