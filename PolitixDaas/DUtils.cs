@@ -16,6 +16,7 @@ namespace PolitixDaas
     {
         public DCsetup dcSetup;
 
+        private int ACounter { get; set; } = 0;
         public DUtils()
         {
             dcSetup = new DCsetup();
@@ -130,7 +131,7 @@ namespace PolitixDaas
             SqlConnection ersConnection)
         {
             String res = "";
-            String anSql = " select DAAS_MD5 from DAAS_EXPORT where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
+            String anSql = " select DAAS_MD5 from DAAS_EXPORT  WITH(NOLOCK)  where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
                  "  and DAAS_KEY4 = @DAAS_KEY4  and DAAS_KEY5 = @DAAS_KEY5 and DAAS_SET_NAME = @DAAS_SET_NAME and DAAS_UPDATE_TIME <= @DAAS_UPDATE_TIME";
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -189,14 +190,41 @@ namespace PolitixDaas
 
         public void process()
         {
-            SqlConnection ersConnection = openERSSQLConnection();
+            Logging.WriteDebug("Starting Process ", dcSetup.Debug);
+            SqlConnection ersConnection = null;
+            ersConnection = openERSSQLConnection();
             if(ersConnection == null)
             {
                 return;
             }
-            //getLocations(ersConnection);
-           // getProducts(ersConnection);
-            getPrices(ersConnection);
+
+            try
+            {
+
+                getProducts(ersConnection);
+                getPrices_1(ersConnection);
+                ACounter++;
+                Logging.WriteDebug("ACounter: " + ACounter.ToString(), dcSetup.Debug);
+                if (ACounter >= 100)
+                {
+                    ACounter = 0;
+                }
+                int aRem = ACounter % 5;
+                Logging.WriteDebug("aRem: " + aRem.ToString(), dcSetup.Debug);
+                if (aRem == 0)
+                {
+                    getLocations(ersConnection);
+                }
+                ersConnection.Close();
+            }
+            finally
+            {
+                try
+                {
+                    ersConnection.Close();
+                }
+                catch { }
+            }
 
             try
             {
@@ -208,8 +236,147 @@ namespace PolitixDaas
 
         }
 
+        private void getPrices_1(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getPrices");
+            String lastUpdate = dcSetup.PriceUpdate;
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
+
+            String sTop = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                sTop = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String anSql = "select " + sTop + " AGR_WARENGR [ProductGroup], AGR_ABTEILUNG[Subgroup], AGR_TYPE[Type],AGR_GRPNUMMER [GroupNumber] " +
+                " from V_ART_KOPF " +
+                " where AGR_MANDANT = 1 AND  cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
+
+ 
+            using (SqlCommand cmdMain = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader mainReader = cmdMain.ExecuteReader())
+                {
+                    while(mainReader.Read())
+                    {
+                        Logging.WriteDebug("Product", dcSetup.Debug);
+                        PriceRoots aroot = new PriceRoots();
+                        aroot.ProductPrice = new ProductPrices();
+                        aroot.ProductPrice.Item = new PricesItem();
+
+                        Logging.WriteDebug("Groupy", dcSetup.Debug);
+
+                        aroot.ProductPrice.Item.GroupNumber = Convert.ToInt32(mainReader["GroupNumber"]);
+                        aroot.ProductPrice.Item.ProductGroup = Convert.ToInt32(mainReader["ProductGroup"]);
+                        aroot.ProductPrice.Item.Subgroup = Convert.ToInt32(mainReader["Subgroup"]);
+                        aroot.ProductPrice.Item.Type = Convert.ToInt32(mainReader["Type"]);
+                        aroot.ProductPrice.Item.Skus = new List<PricesSku>();
+
+                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], " +
+                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price] " +
+                            " from V_ARTIKEL " +
+                            " where ART_MANDANT = 1 AND ART_WARENGR = @ART_WARENGR AND ART_ABTEILUNG = @ART_ABTEILUNG AND ART_TYPE = @ART_TYPE AND ART_GRPNUMMER = @ART_GRPNUMMER";
+
+                        using (SqlCommand cmd = new SqlCommand(skuSql, ersConnection))
+                        {
+                            cmd.Parameters.AddWithValue("@ART_WARENGR", aroot.ProductPrice.Item.ProductGroup);
+                            cmd.Parameters.AddWithValue("@ART_ABTEILUNG", aroot.ProductPrice.Item.Subgroup);
+                            cmd.Parameters.AddWithValue("@ART_TYPE", aroot.ProductPrice.Item.Type);
+                            cmd.Parameters.AddWithValue("@ART_GRPNUMMER", aroot.ProductPrice.Item.GroupNumber);
+                            using (SqlDataReader areader = cmd.ExecuteReader())
+                            {
+                                while (areader.Read())
+                                {
+                                    Logging.WriteDebug("sku", dcSetup.Debug);
+                                    PricesSku anSku = new PricesSku();
+                                    aroot.ProductPrice.Item.Skus.Add(anSku);
+                                    anSku.SkuId = Logging.strToIntDef(areader["SkuId"].ToString(), 0);
+                                    Logging.WriteLog("sku " + anSku.SkuId);
+                                    anSku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
+                                    anSku.Currency = areader["Currency"].ToString();
+
+                                    String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
+                                    anSku.Prices = new List<PricePerCode>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(priceSql, ersConnection))
+                                    {
+                                        Logging.WriteDebug("Price1", dcSetup.Debug);
+                                        pricesCmd.Parameters.AddWithValue("@APR_REFNUMMERY", anSku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                PricePerCode aprice = new PricePerCode();
+                                                anSku.Prices.Add(aprice);
+                                                aprice.PriceCode = priceReader.GetInt16(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.Date = priceReader.GetInt32(2);
+                                            }
+                                        }
+                                    }
+
+                                    String price9Sql = "SELECT  KRF_FILIALE, KRF_VKPREIS, KRF_FILIAL_PREIS, KRF_MAXRABATT FROM V_KASSREF WHERE KRF_MANDANT = 1 AND KRF_REFNUMMER = @KRF_REFNUMMER ";
+                                    anSku.PricesPerBranch = new List<PricePerBranch>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(price9Sql, ersConnection))
+                                    {
+                                        pricesCmd.Parameters.AddWithValue("@KRF_REFNUMMER", anSku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                Logging.WriteDebug("Price2", dcSetup.Debug);
+                                                PricePerBranch aprice = new PricePerBranch();
+                                                anSku.PricesPerBranch.Add(aprice);
+                                                aprice.BranchNo = priceReader.GetInt32(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.BranchPrice = Logging.strToDoubleDef(priceReader[2].ToString(), 0);
+                                                //aprice.MaxDiscount = Logging.strToDoubleDef(priceReader[3].ToString(), 0);
+                                            }
+                                        }
+                                    }
+
+                                }
+
+                            }
+
+
+                        }
+
+                        if(aroot.ProductPrice.Item.Skus.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        Logging.WriteDebug("Finishing price", dcSetup.Debug);
+                        String ajsonStr = SimpleJson.SerializeObject(aroot).ToString();
+                        //  String md5Contents = Logging.CreateMD5(ajsonStr);
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+                        Logging.WriteDebug("MD5", dcSetup.Debug);
+                        String storedMd5 = getMd5(aroot.ProductPrice.Item.ProductGroup.ToString(), aroot.ProductPrice.Item.Subgroup.ToString(), aroot.ProductPrice.Item.Type.ToString(),
+                           aroot.ProductPrice.Item.GroupNumber.ToString(), "1", "PRICE", Logging.strToInt64Def(dcSetup.PriceUpdate, 0), ersConnection);
+                        Logging.WriteDebug("Store MD5", dcSetup.Debug);
+                        if (!md5Contents.Equals(storedMd5) || dcSetup.PriceUpdate.Equals(""))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(aroot).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(aroot).ToString(), dcSetup.PricesQueueName);
+                            updateDaasExport(aroot.ProductPrice.Item.ProductGroup.ToString(), aroot.ProductPrice.Item.Subgroup.ToString(), aroot.ProductPrice.Item.Type.ToString(),
+                                aroot.ProductPrice.Item.GroupNumber.ToString(), "1", "PRICE", md5Contents, ersConnection);
+                        }
+
+
+
+
+                    }
+                }
+            }
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.PriceUpdate = snow;
+
+        }
+
         private void getPrices(SqlConnection ersConnection)
         {
+            Logging.WriteLog("Starting getPrices");
             String lastUpdate = dcSetup.PriceUpdate;
             String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
 
@@ -234,8 +401,8 @@ namespace PolitixDaas
 
             for (int k = 0; k < dsItems.Rows.Count; k++)
             {
-                Logging.WriteDebug("Product", dcSetup.Debug)
-;                PriceRoots aroot = new PriceRoots();
+                Logging.WriteDebug("Product", dcSetup.Debug);
+                PriceRoots aroot = new PriceRoots();
                 aroot.ProductPrice = new ProductPrices();
                 aroot.ProductPrice.Item = new PricesItem();
 
@@ -344,6 +511,7 @@ namespace PolitixDaas
 
         private void getProducts(SqlConnection ersConnection)
         {
+            Logging.WriteLog("Starting getProducts");
             String lastUpdate = dcSetup.ProductUpdate ;
             String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
 
@@ -754,7 +922,7 @@ namespace PolitixDaas
                 String storedMd5 = getMd5(location.BranchNo.ToString(), "1", "1", "1", "1", "LOCATION", Logging.strToInt64Def(dcSetup.LocationUpdate, 0),
                     ersConnection);
 
-                if (!md5Contents.Equals(storedMd5))
+                if (!md5Contents.Equals(storedMd5) || lastUpdate.Equals(""))
                 {
 
                     Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(locationsJson).ToString(), dcSetup.Debug);
