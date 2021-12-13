@@ -201,7 +201,7 @@ namespace PolitixDaas
             try
             {
 
-                getProducts(ersConnection);
+                getProducts_1(ersConnection);
                 getPrices_1(ersConnection);
                 ACounter++;
                 Logging.WriteDebug("ACounter: " + ACounter.ToString(), dcSetup.Debug);
@@ -235,6 +235,277 @@ namespace PolitixDaas
 
 
         }
+
+        private void getProducts_1(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getProducts");
+            String lastUpdate = dcSetup.ProductUpdate;
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
+
+            String anSql = "SELECT FORMAT(max(modify_date), 'yyyyMMddhhmmss')[MODIFY_DATE] " +
+                " FROM sys.tables where name in ( 'ART_KOPF', 'ARTIKEL'   )";
+            double ansModify = 0;
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                var aresult = cmd.ExecuteScalar();
+                if (aresult != null)
+                {
+                    ansModify = Logging.strToDoubleDef(aresult.ToString(), 0);
+                }
+            }
+            String sAnsModify = Logging.doubleDateToString(ansModify);
+
+
+            if (sAnsModify.CompareTo(sqlLastUpdate) < 0)
+            {
+                return;
+            }
+
+            String sTop = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                sTop = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String supdateDate = "0";
+            String supdateTime = "0";
+            if(sqlLastUpdate.ToString().Length == 14)
+            {
+                supdateDate = sqlLastUpdate.ToString().Substring(0, 8);
+                supdateTime = sqlLastUpdate.ToString().Substring(8);
+            }
+
+            anSql = "select " + sTop + " AGR_WARENGR [ProductGroup], AGR_ABTEILUNG[Subgroup], AGR_TYPE[Type],AGR_GRPNUMMER [GroupNumber], AGR_TEXT [SupplierItemDescription], " +
+                " AGR_BONTEXT [ReceiptText], ISNULL(TBL.TEXT, '') [LongDescription], AGR_LIEFERANT[DeliveryType], AGR_LFARTGRP[SupplierItemGroup], " +
+                " AGR_LFARTGRP_TCOD[SupplierItemGroupIndex], ISNULL(EKB_NUMMER, 0)[ORIGEN], ISNULL(EKB_TEXT, '')[ORIGEN_TEXT], AGR_SERIENFLAG[SerialNumberEntry] , " +
+                " AGR_VK_BEREICH[SalesAreaNo], ISNULL(VKB_TEXT, '')[SalesArea], AGR_ETITYP[LabelType], AGR_ETIZAHL[LabelPerPiece], " +
+                " cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) " +
+                " from V_ART_KOPF " +
+                " LEFT JOIN (SELECT ATX_WARENGR, ATX_ABTEILUNG, ATX_TYPE, ATX_GRPNUMMER, STUFF((SELECT ' ' + T2.ATX_TEXT " +
+                "     FROM V_ART_TEXT T2 " +
+                "      WHERE T2.ATX_MANDANT = 1 AND T2.ATX_WARENGR = T1.ATX_WARENGR AND T1.ATX_ABTEILUNG = T2.ATX_ABTEILUNG AND T1.ATX_TYPE = T2.ATX_TYPE AND T1.ATX_GRPNUMMER = T2.ATX_GRPNUMMER " +
+                "       FOR XML PATH('')), 1, 1, '')[TEXT]  " +
+                "       FROM V_ART_TEXT  T1 WHERE T1.ATX_MANDANT = 1 " +
+                "        GROUP BY ATX_WARENGR, ATX_ABTEILUNG, ATX_TYPE, ATX_GRPNUMMER)TBL " +
+                "        ON TBL.ATX_WARENGR = AGR_WARENGR AND TBL.ATX_ABTEILUNG = AGR_ABTEILUNG AND TBL.ATX_TYPE = AGR_TYPE AND TBL.ATX_GRPNUMMER = AGR_GRPNUMMER " +
+                " LEFT JOIN V_EK_BER ON EKB_NUMMER = AGR_EK_BEREICH AND  EKB_MANDANT = 1 " +
+                " LEFT JOIN V_VK_BER ON VKB_NUMMER = AGR_VK_BEREICH AND  VKB_MANDANT = 1 " +
+                " where AGR_MANDANT = 1 AND  (AGR_ULOG_DATE > " + supdateDate + " or (AGR_ULOG_DATE = " + supdateDate + " and AGR_ULOG_TIME >= 0" + supdateTime + ") )";
+                //"cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
+
+            DataTable dsItems = null;
+            using (SqlDataAdapter daTrans = new SqlDataAdapter(anSql, ersConnection))
+            {
+                dsItems = new DataTable();
+                daTrans.Fill(dsItems);
+            }
+            if (dsItems == null)
+                return;
+
+            String attrSql = "select ARC_CODE, ARC_VALUE, ARC_TEXT from V_ART_CODE WHERE " +
+                " ARC_MANDANT = 1 AND ARC_WARENGR = @ARC_WARENGR AND ARC_ABTEILUNG = @ARC_ABTEILUNG AND ARC_TYPE = @ARC_TYPE AND ARC_GRPNUMMER = @ARC_GRPNUMMER";
+
+
+            using (SqlCommand cmdmain = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader mainReader = cmdmain.ExecuteReader())
+                {
+                    while(mainReader.Read())
+                    {
+                        ItemsJson itemsJson = new ItemsJson();
+                        StockItem anItem = new StockItem();
+                        itemsJson.Item = anItem;
+                        anItem.Skus = null;
+                        anItem.ProductGroup = Convert.ToInt32(mainReader["ProductGroup"]);
+                        anItem.Subgroup = Convert.ToInt32(mainReader["Subgroup"]);
+                        anItem.Type = Convert.ToInt32(mainReader["Type"]);
+                        anItem.GroupNumber = Convert.ToInt32(mainReader["GroupNumber"]);
+                        anItem.SupplierItemDescription = mainReader["SupplierItemDescription"].ToString();
+                        anItem.ReceiptText = mainReader["ReceiptText"].ToString();
+                        anItem.LongDescription = mainReader["LongDescription"].ToString();
+                        anItem.DeliveryType = Convert.ToInt32(mainReader["DeliveryType"]);
+                        anItem.SupplierItemGroup = Convert.ToInt32(mainReader["SupplierItemGroup"]);
+                        anItem.SupplierItemGroupIndex = mainReader["SupplierItemGroupIndex"].ToString();
+                        anItem.Origen = Convert.ToInt32(mainReader["ORIGEN"]);
+                        anItem.OrigenText = mainReader["ORIGEN_TEXT"].ToString();
+                        anItem.SerialNumberEntry = Convert.ToInt32(mainReader["SerialNumberEntry"]);
+                        anItem.SalesAreaNo = Convert.ToInt32(mainReader["SalesAreaNo"]);
+                        anItem.SalesArea = mainReader["SalesArea"].ToString();
+
+                        anItem.ItemAttributes = new List<StockAttribute>();
+                        using (SqlCommand cmd = new SqlCommand(attrSql, ersConnection))
+                        {
+                            cmd.Parameters.AddWithValue("@ARC_WARENGR", anItem.ProductGroup);
+                            cmd.Parameters.AddWithValue("@ARC_ABTEILUNG", anItem.Subgroup);
+                            cmd.Parameters.AddWithValue("@ARC_TYPE", anItem.Type);
+                            cmd.Parameters.AddWithValue("@ARC_GRPNUMMER", anItem.GroupNumber);
+                            using (SqlDataReader areader = cmd.ExecuteReader())
+                            {
+                                while (areader.Read())
+                                {
+                                    StockAttribute anAttribute = new StockAttribute();
+                                    anItem.ItemAttributes.Add(anAttribute);
+                                    anAttribute.Code = areader.GetString(0);
+                                    anAttribute.Value = areader.GetInt32(1);
+                                    anAttribute.Text = areader.GetString(2);
+                                }
+
+                            }
+                        }
+
+                        String skuSql = "select ART_REFNUMMER[SkuId], ART_SORTIERUNG[Sort], ART_EINHEITTEXT[UnitText], ART_EIGENTEXT[VariantText], ART_LFID_NUMMER[RefNummer], " +
+                            " ART_SAISON[StatisticalPeriodNo], SPE_TEXT[StatisticalPeriod], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], " +
+                            " ART_CMP_TYP[QtyTypeForComparativePrice], ART_CMP_ISTMENGE[ComparativeQtyForComparativePrice], ART_CMP_REFMENGE[QtyForComparativePrice], " +
+                            " ART_ZWEIT_LFID[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency] " +
+                            " from V_ARTIKEL " +
+                            " LEFT JOIN V_STATPERI ON SPE_SAISON = ART_SAISON AND SPE_MANDANT = 1" +
+                            " where ART_MANDANT = 1 AND ART_WARENGR = @ART_WARENGR AND ART_ABTEILUNG = @ART_ABTEILUNG AND ART_TYPE = @ART_TYPE AND ART_GRPNUMMER = @ART_GRPNUMMER";
+
+
+                        anItem.Skus = new List<Sku>();
+
+                        using (SqlCommand cmd = new SqlCommand(skuSql, ersConnection))
+                        {
+                            cmd.Parameters.AddWithValue("@ART_WARENGR", anItem.ProductGroup);
+                            cmd.Parameters.AddWithValue("@ART_ABTEILUNG", anItem.Subgroup);
+                            cmd.Parameters.AddWithValue("@ART_TYPE", anItem.Type);
+                            cmd.Parameters.AddWithValue("@ART_GRPNUMMER", anItem.GroupNumber);
+                            using (SqlDataReader areader = cmd.ExecuteReader())
+                            {
+                                while (areader.Read())
+                                {
+                                    Sku sku = new Sku();
+                                    anItem.Skus.Add(sku);
+                                    sku.SkuId = Logging.strToIntDef(areader["SkuId"].ToString(), 0);
+                                    sku.Sort = Logging.strToIntDef(areader["Sort"].ToString(), 0);
+                                    sku.UnitText = areader["UnitText"].ToString();
+                                    sku.VariantText = areader["VariantText"].ToString();
+                                    sku.RefNummer = areader["RefNummer"].ToString();
+                                    sku.StatisticalPeriodNo = Logging.strToIntDef(areader["StatisticalPeriodNo"].ToString(), 0);
+                                    sku.StatisticalPeriod = areader["StatisticalPeriod"].ToString();
+                                    sku.MaximumDiscount = Logging.strToDoubleDef(areader["MaximumDiscount"].ToString(), 0);
+                                    sku.FixedPrice = Logging.strToDoubleDef(areader["FixedPrice"].ToString(), 0);
+                                    sku.POSupplierItemNumber = areader["POSupplierItemNumber"].ToString();
+                                    sku.QtyTypeForComparativePrice = areader["QtyTypeForComparativePrice"].ToString();
+                                    sku.ComparativeQtyForComparativePrice = Logging.strToDoubleDef(areader["ComparativeQtyForComparativePrice"].ToString(), 0);
+                                    sku.QtyForComparativePrice = Logging.strToDoubleDef(areader["QtyForComparativePrice"].ToString(), 0);
+                                    sku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
+                                    sku.Currency = areader["Currency"].ToString();
+
+                                    sku.EanCodes = new List<EanCode>();
+                                    String eanSql = "SELECT AEA_EANCODE, AEA_SORTIERUNG FROM V_ART_EANS WHERE AEA_MANDANT = 1 AND AEA_REFNUMMER = @AEA_REFNUMMER ";
+
+                                    using (SqlCommand cmdEan = new SqlCommand(eanSql, ersConnection))
+                                    {
+                                        cmdEan.Parameters.AddWithValue("@AEA_REFNUMMER", sku.SkuId);
+                                        using (SqlDataReader eanReader = cmdEan.ExecuteReader())
+                                        {
+                                            while (eanReader.Read())
+                                            {
+                                                EanCode eanCode = new EanCode();
+                                                sku.EanCodes.Add(eanCode);
+                                                eanCode.ECode = eanReader["AEA_EANCODE"].ToString();
+                                                eanCode.Sorting = Logging.strToIntDef(eanReader["AEA_SORTIERUNG"].ToString(), 0);
+                                            }
+                                        }
+                                    }
+
+                                    String attrSkuSql = "select ADC_CODE, ADC_VALUE, ADC_TEXT from V_ART_DCOD where ADC_MANDANT = 1 AND ADC_REFNUMMER = @ADC_REFNUMMERY";
+                                    sku.skuAttributes = new List<StockAttribute>();
+
+                                    using (SqlCommand attrCmd = new SqlCommand(attrSkuSql, ersConnection))
+                                    {
+
+                                        try
+                                        {
+                                            Logging.WriteDebug("Here + " + sku.SkuId, dcSetup.Debug);
+                                            attrCmd.Parameters.AddWithValue("@ADC_REFNUMMERY", sku.SkuId);
+                                            using (SqlDataReader attrReader = attrCmd.ExecuteReader())
+                                            {
+                                                while (attrReader.Read())
+                                                {
+                                                    StockAttribute anAttribute = new StockAttribute();
+                                                    sku.skuAttributes.Add(anAttribute);
+                                                    anAttribute.Code = attrReader["ADC_CODE"].ToString();
+                                                    anAttribute.Text = attrReader["ADC_TEXT"].ToString();
+                                                    anAttribute.Value = Logging.strToIntDef(attrReader["ADC_VALUE"].ToString(), 0);
+                                                }
+                                            }
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            Logging.WriteErrorLog("here " + sku.SkuId + " " + e.Message);
+                                        }
+
+                                    }
+
+                                    String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
+                                    sku.Prices = new List<PricePerCode>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(priceSql, ersConnection))
+                                    {
+                                        pricesCmd.Parameters.AddWithValue("@APR_REFNUMMERY", sku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                PricePerCode aprice = new PricePerCode();
+                                                sku.Prices.Add(aprice);
+                                                aprice.PriceCode = priceReader.GetInt16(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.Date = priceReader.GetInt32(2);
+                                            }
+                                        }
+                                    }
+
+                                    String price9Sql = "SELECT  KRF_FILIALE, KRF_VKPREIS, KRF_FILIAL_PREIS, KRF_MAXRABATT FROM V_KASSREF WHERE KRF_MANDANT = 1 AND KRF_REFNUMMER = @KRF_REFNUMMER ";
+                                    sku.PricesPerBranch = new List<PricePerBranch>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(price9Sql, ersConnection))
+                                    {
+                                        pricesCmd.Parameters.AddWithValue("@KRF_REFNUMMER", sku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                PricePerBranch aprice = new PricePerBranch();
+                                                sku.PricesPerBranch.Add(aprice);
+                                                aprice.BranchNo = priceReader.GetInt32(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.BranchPrice = Logging.strToDoubleDef(priceReader[2].ToString(), 0);
+                                                //aprice.MaxDiscount = Logging.strToDoubleDef(priceReader[3].ToString(), 0);
+                                            }
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(itemsJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+                        String storedMd5 = getMd5(anItem.ProductGroup.ToString(), anItem.Subgroup.ToString(), anItem.Type.ToString(), anItem.GroupNumber.ToString(), "1", "PRODUCT", Logging.strToInt64Def(dcSetup.ProductUpdate, 0),
+                            ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(itemsJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(itemsJson).ToString(), dcSetup.ProductsQueueName);
+                            updateDaasExport(anItem.ProductGroup.ToString(), anItem.Subgroup.ToString(), anItem.Type.ToString(), anItem.GroupNumber.ToString(), "1", "PRODUCT", md5Contents, ersConnection);
+                        }
+
+
+
+                    }
+                }
+            }
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.ProductUpdate = snow;
+
+
+        }
+
+
 
         private void getPrices_1(SqlConnection ersConnection)
         {
