@@ -24,14 +24,14 @@ namespace PolitixDaas
         public string LongDescription { get; set; }
         public int DeliveryType { get; set; }
         public int SupplierItemGroup { get; set; }
-        public string SupplierItemGroupIndex { get; set; }
-        public int Origen { get; set; }
-        public string OrigenText { get; set; }
+        public int Origin { get; set; }
+        public string OriginText { get; set; }
         public int SerialNumberEntry { get; set; }
         public int SalesAreaNo { get; set; }
         public string SalesArea { get; set; }
         public int LabelType { get; set; }
         public int LabelPerPiece { get; set; }
+        public String SupplierItemGroupIndex { get; set; }
         public List<StockAttribute> ItemAttributes;
 
         public List<Sku> Skus { get; set; }
@@ -60,12 +60,15 @@ namespace PolitixDaas
         public string QtyTypeForComparativePrice { get; set; }
         public double ComparativeQtyForComparativePrice { get; set; }
         public double QtyForComparativePrice { get; set; }
+        public String PO_Supplier { get; set; }
         public string POSupplierItemNumber { get; set; }
         public double RT_Price { get; set; }
+        public double PP_Price { get; set; }
         public string Currency { get; set; }
+        public double WeightedAverageCost { get; set; }
         public List<EanCode> EanCodes { get; set; }
-        public List<PricePerBranch> PricesPerBranch { get; set; }
-        public List<PricePerCode> Prices { get; set; }
+   //     public List<PricePerBranch> PricesPerBranch { get; set; }
+   //     public List<PricePerCode> Prices { get; set; }
         public List<StockAttribute> skuAttributes { get; set; }
     }
 
@@ -117,7 +120,9 @@ namespace PolitixDaas
     {
         public int SkuId { get; set; }
         public double RT_Price { get; set; }
+        public double PP_Price { get; set; }
         public string Currency { get; set; }
+        public double WeightedAverageCost { get; set; }
         public List<PricePerBranch> PricesPerBranch { get; set; }
         public List<PricePerCode> Prices { get; set; }
 

@@ -34,8 +34,11 @@ namespace PolitixDaas
         public int Debug { get; private set; }
         public int MinSendDate { get; private set; }
         public int ResultSet { get; private set; }
+        public int LocationModule { get; private set; }
 
- 
+
+
+
         public String LocationUpdate
         {
             get => getLocationUpdate();
@@ -137,7 +140,11 @@ namespace PolitixDaas
 
             ResultSet = anIni.readInteger("SYSTEM", "ResultSet", 0);
             Debug = anIni.readInteger("SYSTEM", "Debug", 0);
- 
+            LocationModule = anIni.readInteger("SYSTEM", "LocationModule", 1);
+            if(LocationModule < 1)
+            {
+                LocationModule = 1;
+            }
             MinSendDate = anIni.readInteger("SYSTEM", "MinSendDate", 20210301);
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
             LocationsQueueName = anIni.readString("Queues", "Locations", "");

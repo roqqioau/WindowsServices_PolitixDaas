@@ -209,7 +209,10 @@ namespace PolitixDaas
                 {
                     ACounter = 0;
                 }
-                int aRem = ACounter % 5;
+
+
+
+                int aRem = ACounter % dcSetup.LocationModule;
                 Logging.WriteDebug("aRem: " + aRem.ToString(), dcSetup.Debug);
                 if (aRem == 0)
                 {
@@ -291,16 +294,10 @@ namespace PolitixDaas
                 " LEFT JOIN V_EK_BER ON EKB_NUMMER = AGR_EK_BEREICH AND  EKB_MANDANT = 1 " +
                 " LEFT JOIN V_VK_BER ON VKB_NUMMER = AGR_VK_BEREICH AND  VKB_MANDANT = 1 " +
                 " where AGR_MANDANT = 1 AND  (AGR_ULOG_DATE > " + supdateDate + " or (AGR_ULOG_DATE = " + supdateDate + " and AGR_ULOG_TIME >= 0" + supdateTime + ") )";
-                //"cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
+            //"cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
 
-            DataTable dsItems = null;
-            using (SqlDataAdapter daTrans = new SqlDataAdapter(anSql, ersConnection))
-            {
-                dsItems = new DataTable();
-                daTrans.Fill(dsItems);
-            }
-            if (dsItems == null)
-                return;
+            Logging.WriteDebug(anSql, dcSetup.Debug)
+;
 
             String attrSql = "select ARC_CODE, ARC_VALUE, ARC_TEXT from V_ART_CODE WHERE " +
                 " ARC_MANDANT = 1 AND ARC_WARENGR = @ARC_WARENGR AND ARC_ABTEILUNG = @ARC_ABTEILUNG AND ARC_TYPE = @ARC_TYPE AND ARC_GRPNUMMER = @ARC_GRPNUMMER";
@@ -325,12 +322,12 @@ namespace PolitixDaas
                         anItem.LongDescription = mainReader["LongDescription"].ToString();
                         anItem.DeliveryType = Convert.ToInt32(mainReader["DeliveryType"]);
                         anItem.SupplierItemGroup = Convert.ToInt32(mainReader["SupplierItemGroup"]);
-                        anItem.SupplierItemGroupIndex = mainReader["SupplierItemGroupIndex"].ToString();
-                        anItem.Origen = Convert.ToInt32(mainReader["ORIGEN"]);
-                        anItem.OrigenText = mainReader["ORIGEN_TEXT"].ToString();
+                        anItem.Origin = Convert.ToInt32(mainReader["ORIGEN"]);
+                        anItem.OriginText = mainReader["ORIGEN_TEXT"].ToString();
                         anItem.SerialNumberEntry = Convert.ToInt32(mainReader["SerialNumberEntry"]);
                         anItem.SalesAreaNo = Convert.ToInt32(mainReader["SalesAreaNo"]);
                         anItem.SalesArea = mainReader["SalesArea"].ToString();
+                        anItem.SupplierItemGroupIndex = mainReader["SupplierItemGroupIndex"].ToString();
 
                         anItem.ItemAttributes = new List<StockAttribute>();
                         using (SqlCommand cmd = new SqlCommand(attrSql, ersConnection))
@@ -356,7 +353,11 @@ namespace PolitixDaas
                         String skuSql = "select ART_REFNUMMER[SkuId], ART_SORTIERUNG[Sort], ART_EINHEITTEXT[UnitText], ART_EIGENTEXT[VariantText], ART_LFID_NUMMER[RefNummer], " +
                             " ART_SAISON[StatisticalPeriodNo], SPE_TEXT[StatisticalPeriod], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], " +
                             " ART_CMP_TYP[QtyTypeForComparativePrice], ART_CMP_ISTMENGE[ComparativeQtyForComparativePrice], ART_CMP_REFMENGE[QtyForComparativePrice], " +
-                            " ART_ZWEIT_LFID[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency] " +
+                            " ART_ZWEIT_LFID[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency], ART_NEUEK_DM [PurchasePrice],ART_ZWEITLIEFERANT [PO_Supplier], " +
+                            " case " + 
+                            "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
+                            "   else ART_EK_DM " +
+                            " end[WeightedAverageCost] " + 
                             " from V_ARTIKEL " +
                             " LEFT JOIN V_STATPERI ON SPE_SAISON = ART_SAISON AND SPE_MANDANT = 1" +
                             " where ART_MANDANT = 1 AND ART_WARENGR = @ART_WARENGR AND ART_ABTEILUNG = @ART_ABTEILUNG AND ART_TYPE = @ART_TYPE AND ART_GRPNUMMER = @ART_GRPNUMMER";
@@ -385,13 +386,15 @@ namespace PolitixDaas
                                     sku.StatisticalPeriod = areader["StatisticalPeriod"].ToString();
                                     sku.MaximumDiscount = Logging.strToDoubleDef(areader["MaximumDiscount"].ToString(), 0);
                                     sku.FixedPrice = Logging.strToDoubleDef(areader["FixedPrice"].ToString(), 0);
+                                    sku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
                                     sku.POSupplierItemNumber = areader["POSupplierItemNumber"].ToString();
                                     sku.QtyTypeForComparativePrice = areader["QtyTypeForComparativePrice"].ToString();
                                     sku.ComparativeQtyForComparativePrice = Logging.strToDoubleDef(areader["ComparativeQtyForComparativePrice"].ToString(), 0);
                                     sku.QtyForComparativePrice = Logging.strToDoubleDef(areader["QtyForComparativePrice"].ToString(), 0);
                                     sku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
                                     sku.Currency = areader["Currency"].ToString();
-
+                                    sku.PP_Price = Logging.strToDoubleDef(areader["PurchasePrice"].ToString(), 0);
+                                    sku.PO_Supplier = areader["PO_Supplier"].ToString();
                                     sku.EanCodes = new List<EanCode>();
                                     String eanSql = "SELECT AEA_EANCODE, AEA_SORTIERUNG FROM V_ART_EANS WHERE AEA_MANDANT = 1 AND AEA_REFNUMMER = @AEA_REFNUMMER ";
 
@@ -439,43 +442,8 @@ namespace PolitixDaas
 
                                     }
 
-                                    String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
-                                    sku.Prices = new List<PricePerCode>();
-                                    using (SqlCommand pricesCmd = new SqlCommand(priceSql, ersConnection))
-                                    {
-                                        pricesCmd.Parameters.AddWithValue("@APR_REFNUMMERY", sku.SkuId);
-                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
-                                        {
-                                            while (priceReader.Read())
-                                            {
-                                                PricePerCode aprice = new PricePerCode();
-                                                sku.Prices.Add(aprice);
-                                                aprice.PriceCode = priceReader.GetInt16(0);
-                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
-                                                aprice.Date = priceReader.GetInt32(2);
-                                            }
-                                        }
-                                    }
-
-                                    String price9Sql = "SELECT  KRF_FILIALE, KRF_VKPREIS, KRF_FILIAL_PREIS, KRF_MAXRABATT FROM V_KASSREF WHERE KRF_MANDANT = 1 AND KRF_REFNUMMER = @KRF_REFNUMMER ";
-                                    sku.PricesPerBranch = new List<PricePerBranch>();
-                                    using (SqlCommand pricesCmd = new SqlCommand(price9Sql, ersConnection))
-                                    {
-                                        pricesCmd.Parameters.AddWithValue("@KRF_REFNUMMER", sku.SkuId);
-                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
-                                        {
-                                            while (priceReader.Read())
-                                            {
-                                                PricePerBranch aprice = new PricePerBranch();
-                                                sku.PricesPerBranch.Add(aprice);
-                                                aprice.BranchNo = priceReader.GetInt32(0);
-                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
-                                                aprice.BranchPrice = Logging.strToDoubleDef(priceReader[2].ToString(), 0);
-                                                //aprice.MaxDiscount = Logging.strToDoubleDef(priceReader[3].ToString(), 0);
-                                            }
-                                        }
-                                    }
-
+  
+ 
                                 }
                             }
                         }
@@ -543,8 +511,12 @@ namespace PolitixDaas
                         aroot.ProductPrice.Item.Type = Convert.ToInt32(mainReader["Type"]);
                         aroot.ProductPrice.Item.Skus = new List<PricesSku>();
 
-                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], " +
-                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price] " +
+                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_NEUEK_DM [PurchasePrice], " +
+                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], " +
+                            " case " +
+                            "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
+                            "   else ART_EK_DM " +
+                            " end[WeightedAverageCost] " +
                             " from V_ARTIKEL " +
                             " where ART_MANDANT = 1 AND ART_WARENGR = @ART_WARENGR AND ART_ABTEILUNG = @ART_ABTEILUNG AND ART_TYPE = @ART_TYPE AND ART_GRPNUMMER = @ART_GRPNUMMER";
 
@@ -565,6 +537,8 @@ namespace PolitixDaas
                                     Logging.WriteLog("sku " + anSku.SkuId);
                                     anSku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
                                     anSku.Currency = areader["Currency"].ToString();
+                                    anSku.PP_Price = Logging.strToDoubleDef(areader["PurchasePrice"].ToString(), 0);
+                                    anSku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
 
                                     String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
                                     anSku.Prices = new List<PricePerCode>();
@@ -858,9 +832,8 @@ namespace PolitixDaas
                 anItem.LongDescription = arow["LongDescription"].ToString();
                 anItem.DeliveryType = Convert.ToInt32(arow["DeliveryType"]);
                 anItem.SupplierItemGroup = Convert.ToInt32(arow["SupplierItemGroup"]);
-                anItem.SupplierItemGroupIndex = arow["SupplierItemGroupIndex"].ToString();
-                anItem.Origen = Convert.ToInt32(arow["ORIGEN"]);
-                anItem.OrigenText = arow["ORIGEN_TEXT"].ToString();
+                anItem.Origin = Convert.ToInt32(arow["ORIGEN"]);
+                anItem.OriginText = arow["ORIGEN_TEXT"].ToString();
                 anItem.SerialNumberEntry = Convert.ToInt32(arow["SerialNumberEntry"]);
                 anItem.SalesAreaNo = Convert.ToInt32(arow["SalesAreaNo"]);
                 anItem.SalesArea = arow["SalesArea"].ToString();
@@ -972,42 +945,6 @@ namespace PolitixDaas
 
                             }
 
-                            String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
-                            sku.Prices = new List<PricePerCode>();
-                            using (SqlCommand pricesCmd = new SqlCommand(priceSql,  ersConnection))
-                            {
-                                pricesCmd.Parameters.AddWithValue("@APR_REFNUMMERY", sku.SkuId);
-                                using(SqlDataReader priceReader = pricesCmd.ExecuteReader())
-                                {
-                                    while(priceReader.Read())
-                                    {
-                                        PricePerCode aprice = new PricePerCode();
-                                        sku.Prices.Add(aprice);
-                                        aprice.PriceCode = priceReader.GetInt16(0);
-                                        aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
-                                        aprice.Date = priceReader.GetInt32(2);
-                                    }
-                                }
-                            }
-
-                            String price9Sql = "SELECT  KRF_FILIALE, KRF_VKPREIS, KRF_FILIAL_PREIS, KRF_MAXRABATT FROM V_KASSREF WHERE KRF_MANDANT = 1 AND KRF_REFNUMMER = @KRF_REFNUMMER ";
-                            sku.PricesPerBranch = new List<PricePerBranch>();
-                            using (SqlCommand pricesCmd = new SqlCommand(price9Sql, ersConnection))
-                            {
-                                pricesCmd.Parameters.AddWithValue("@KRF_REFNUMMER", sku.SkuId);
-                                using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
-                                {
-                                    while (priceReader.Read())
-                                    {
-                                        PricePerBranch aprice = new PricePerBranch();
-                                        sku.PricesPerBranch.Add(aprice);
-                                        aprice.BranchNo = priceReader.GetInt32(0);
-                                        aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
-                                        aprice.BranchPrice = Logging.strToDoubleDef(priceReader[2].ToString(), 0);
-                                        //aprice.MaxDiscount = Logging.strToDoubleDef(priceReader[3].ToString(), 0);
-                                    }
-                                }
-                            }
 
                         }
                     }
