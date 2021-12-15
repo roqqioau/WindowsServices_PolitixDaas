@@ -107,7 +107,7 @@ namespace PolitixDaas
             {
                 DateTime adate = futuraDateToDateTime(FuturaDateTime);
                 DateTime updated = adate.Add(new TimeSpan(0, minutes, 0));
-                ares = updated.ToString("yyMMddhhmmss");
+                ares = updated.ToString("yyyyMMddhhmmss");
             }
             catch { }
 

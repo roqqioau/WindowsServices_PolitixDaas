@@ -247,22 +247,21 @@ namespace PolitixDaas
 
             String anSql = "SELECT FORMAT(max(modify_date), 'yyyyMMddhhmmss')[MODIFY_DATE] " +
                 " FROM sys.tables where name in ( 'ART_KOPF', 'ARTIKEL'   )";
-            double ansModify = 0;
+            String sAnsModify = "0";
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
                 var aresult = cmd.ExecuteScalar();
                 if (aresult != null)
                 {
-                    ansModify = Logging.strToDoubleDef(aresult.ToString(), 0);
+                    sAnsModify =  aresult.ToString();
                 }
             }
-            String sAnsModify = Logging.doubleDateToString(ansModify);
 
 
-            if (sAnsModify.CompareTo(sqlLastUpdate) < 0)
-            {
-                return;
-            }
+            //if (sAnsModify.CompareTo(sqlLastUpdate) < 0)
+            //{
+            //    return;
+            //}
 
             String sTop = " ";
             if (dcSetup.ResultSet > 0)
@@ -491,7 +490,7 @@ namespace PolitixDaas
                 " from V_ART_KOPF " +
                 " where AGR_MANDANT = 1 AND  cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
 
- 
+            Logging.WriteDebug(anSql, dcSetup.Debug);
             using (SqlCommand cmdMain = new SqlCommand(anSql, ersConnection))
             {
                 using (SqlDataReader mainReader = cmdMain.ExecuteReader())
