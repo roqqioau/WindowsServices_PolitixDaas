@@ -35,8 +35,14 @@ namespace PolitixDaas
         public int MinSendDate { get; private set; }
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
+        public int DateFrom { get; set; }
+        public int DateTo { get; set; }
+        public int LookupIntervalDays { get; set; }
 
-
+        public bool BlockLocations { get; set; }
+        public bool BlockProducts { get; set; }
+        public bool BlockPrices { get; set; }
+        public bool BlockSales { get; set; }
 
 
         public String LocationUpdate
@@ -103,6 +109,26 @@ namespace PolitixDaas
             anIni.writeString("System", "PriceUpdate", value);
         }
 
+        public String SaleUpdate
+        {
+            get => getSaleUpdate();
+            set => setSaleUpdate(value);
+        }
+
+        private void setSaleUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "SaleUpdate", value);
+        }
+
+        private String getSaleUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "SaleUpdate", "");
+        }
+
 
 
 
@@ -138,6 +164,23 @@ namespace PolitixDaas
             String osAuthentic = anIni.readString("SQL", "osauthentication", "0");
             SqlOsAuthentication = osAuthentic.Equals("1") || osAuthentic.ToUpper().Equals("Y");
 
+            // BlockLocations = 1
+            // BlockProducts = 1
+            // BlockPrices = 1
+            //BlockSales = 0
+
+            String sBlockLocations = anIni.readString("SYSTEM", "BlockLocations", "");
+            BlockLocations = sBlockLocations.Equals("1") || sBlockLocations.ToUpper().Equals("Y");
+
+            String sBlockProducts = anIni.readString("SYSTEM", "BlockProducts", "");
+            BlockProducts = sBlockProducts.Equals("1") || sBlockProducts.ToUpper().Equals("Y");
+
+            String sBlockPrices = anIni.readString("SYSTEM", "BlockPrices", "");
+            BlockPrices = sBlockPrices.Equals("1") || sBlockPrices.ToUpper().Equals("Y");
+
+            String sBlockSales = anIni.readString("SYSTEM", "BlockSales", "");
+            BlockSales = sBlockSales.Equals("1") || sBlockSales.ToUpper().Equals("Y");
+
             ResultSet = anIni.readInteger("SYSTEM", "ResultSet", 0);
             Debug = anIni.readInteger("SYSTEM", "Debug", 0);
             LocationModule = anIni.readInteger("SYSTEM", "LocationModule", 1);
@@ -151,6 +194,10 @@ namespace PolitixDaas
             ProductsQueueName = anIni.readString("Queues", "Products", "");
             PricesQueueName = anIni.readString("Queues", "Prices", "");
 
+            DateFrom = anIni.readInteger("SYSTEM", "SalesDateFrom", 0);
+            DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
+
+            LookupIntervalDays = anIni.readInteger("SYSTEM", "LookupIntervalDays", 7);
         }
 
 

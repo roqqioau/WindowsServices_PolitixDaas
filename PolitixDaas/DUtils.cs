@@ -16,6 +16,9 @@ namespace PolitixDaas
     {
         public DCsetup dcSetup;
 
+        private Dictionary<String, String> lstDiscount = new Dictionary<string, string>();
+
+
         private int ACounter { get; set; } = 0;
         public DUtils()
         {
@@ -187,6 +190,122 @@ namespace PolitixDaas
 
         }
 
+        public void getSales(SqlConnection ersConnection )
+        {
+            populateDiscount(ersConnection);
+            Logging.WriteLog("Starting geSales");
+            String lastUpdate = dcSetup.ProductUpdate;
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
+            if(sqlLastUpdate.Equals("0"))
+            {
+                String anSql = "delete from DAAS_EXPORT where DAAS_SET_NAME = 'SALE' ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            String startingDate = dcSetup.MinSendDate.ToString();
+
+            int dayInterval = dcSetup.LookupIntervalDays;
+            if (dayInterval <= 0)
+            {
+                dayInterval = 1000;
+            }
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            DateTime fromDate = DateTime.Now.AddDays(-1 * dayInterval);
+            String anInterval = fromDate.ToString("yyyyMMdd");
+            String dateFrom = dcSetup.DateFrom.ToString();
+            String dateTo = dcSetup.DateTo.ToString();
+
+            String sqlstr = "select distinct " + top10 + " KAS_MANDANT, K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX],  " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]  " +
+                " from V_KASIDLTA K  WITH (NOLOCK) " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER and F.FIL_MANDANT = K.KAS_MANDANT" +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
+                " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
+                " and not exists(select * from DAAS_EXPORT D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE' AND DAAS_UPDATE_TIME < " + sqlLastUpdate + " ) " +
+
+                " and not exists(select * from  V_KASIDLTA D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20) and K.KAS_MANDANT = D.KAS_MANDANT " +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) " +
+
+                " union all " +
+                " select distinct " + top10 + " KAS_MANDANT, K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX], " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]   " +
+                " from V_KASSTRNS K  WITH (NOLOCK) " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER and F.FIL_MANDANT = K.KAS_MANDANT" +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
+                " where ((K.KAS_VK_DATUM > " + anInterval + " and  K.KAS_VK_DATUM > " + startingDate + ") or (K.KAS_VK_DATUM >= " + dateFrom + " and K.KAS_VK_DATUM <= " + dateTo + ") ) " +
+
+                " and not exists(select * from DAAS_EXPORT D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE' AND DAAS_UPDATE_TIME<  " + sqlLastUpdate + " ) " +
+
+                " and not exists(select * from  V_KASSTRNS D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20) and K.KAS_MANDANT = D.KAS_MANDANT " +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) " +
+
+                " union all " +
+                " select distinct " + top10 + " KAS_MANDANT, K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX], " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]   " +
+                " from V_KASSE K  WITH (NOLOCK) " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER and F.FIL_MANDANT = K.KAS_MANDANT" +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
+                " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
+                " and not exists(select * from DAAS_EXPORT D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE' AND DAAS_UPDATE_TIME <  " + sqlLastUpdate + " ) " +
+                " and not exists(select * from V_KASSE D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20) and K.KAS_MANDANT = D.KAS_MANDANT" +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) ";
+
+            sqlstr = "select KAS_MANDANT, KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, max(ZZO_STD_NAME) [ZZO_STD_NAME] , max(KAS_ZEIT)[KAS_ZEIT], max(FIL_INDEX) [FIL_INDEX] from (" + sqlstr +
+
+                " ) tbl group by KAS_MANDANT, KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BERICHT  order by 2,3,4,5,1   option (force order)";
+
+            using(SqlCommand cmd = new SqlCommand(sqlstr, ersConnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+
+                    }
+                }
+
+            }
+
+
+        }
+
+
+        private void populateDiscount(SqlConnection ersConnection)
+        {
+            lstDiscount.Clear();
+            String anSql = "select Cast(PAG_MANDANT as varchar) + '~' + Cast(PAG_NUMMER as varchar) as DISCOUNT, PAG_TEXT from PA_GRUND";
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        String akey = areader[0].ToString();
+                        String avalue = areader[1].ToString();
+                        lstDiscount.Add(akey, avalue);
+                    }
+                }
+            }
+        }
+
 
         public void process()
         {
@@ -200,9 +319,20 @@ namespace PolitixDaas
 
             try
             {
+                if (!dcSetup.BlockSales)
+                {
+                    getSales(ersConnection);
+                }
 
-                getProducts_1(ersConnection);
-                getPrices_1(ersConnection);
+                if (!dcSetup.BlockProducts)
+                {
+                    getProducts_1(ersConnection);
+                }
+
+                if (!dcSetup.BlockPrices)
+                {
+                    getPrices_1(ersConnection);
+                }
                 ACounter++;
                 Logging.WriteDebug("ACounter: " + ACounter.ToString(), dcSetup.Debug);
                 if (ACounter >= 100)
@@ -214,7 +344,7 @@ namespace PolitixDaas
 
                 int aRem = ACounter % dcSetup.LocationModule;
                 Logging.WriteDebug("aRem: " + aRem.ToString(), dcSetup.Debug);
-                if (aRem == 0)
+                if (aRem == 0 && (!dcSetup.BlockLocations) )
                 {
                     getLocations(ersConnection);
                 }
