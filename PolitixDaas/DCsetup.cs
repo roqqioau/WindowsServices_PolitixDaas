@@ -16,6 +16,8 @@ namespace PolitixDaas
         public String LocationsQueueName { get; private set; }
         public String PricesQueueName { get; private set; }
         public String ProductsQueueName { get; private set; }
+        public String SalesQueueName { get; private set; }
+        public String PermanentMarkdownsQueueName { get; private set; }
         public String SMTPHost { get; private set; }
         public String SMTPUserName { get; private set; }
         public String SMTPPassword { get; private set; }
@@ -33,6 +35,7 @@ namespace PolitixDaas
         public bool SqlOsAuthentication { get; private set; }
         public int Debug { get; private set; }
         public int MinSendDate { get; private set; }
+        public int PermanentMarkDownsInitialDate { get; private set; }
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
         public int DateFrom { get; set; }
@@ -43,7 +46,28 @@ namespace PolitixDaas
         public bool BlockProducts { get; set; }
         public bool BlockPrices { get; set; }
         public bool BlockSales { get; set; }
+        public bool BlockPermanentMarkdowns { get; set; }
 
+
+        public String PermanentMarkdownUpdate
+        {
+            get => getPermanentMarkdownUpdate();
+            set => setPermanentMarkdownUpdate(value);
+        }
+
+        private String getPermanentMarkdownUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "PermanentMarkdownUpdate", "");
+        }
+
+        private void setPermanentMarkdownUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "PermanentMarkdownUpdate", value);
+        }
 
         public String LocationUpdate
         {
@@ -181,6 +205,9 @@ namespace PolitixDaas
             String sBlockSales = anIni.readString("SYSTEM", "BlockSales", "");
             BlockSales = sBlockSales.Equals("1") || sBlockSales.ToUpper().Equals("Y");
 
+            String sBlockPermanentMarkdowns = anIni.readString("SYSTEM", "BlockPermanentMarkdowns", "");
+            BlockPermanentMarkdowns = sBlockPermanentMarkdowns.Equals("1") || sBlockPermanentMarkdowns.ToUpper().Equals("Y");
+
             ResultSet = anIni.readInteger("SYSTEM", "ResultSet", 0);
             Debug = anIni.readInteger("SYSTEM", "Debug", 0);
             LocationModule = anIni.readInteger("SYSTEM", "LocationModule", 1);
@@ -189,10 +216,14 @@ namespace PolitixDaas
                 LocationModule = 1;
             }
             MinSendDate = anIni.readInteger("SYSTEM", "MinSendDate", 20210301);
+            PermanentMarkDownsInitialDate = anIni.readInteger("SYSTEM", "PermanentMarkDownsInitialDate", 20210301);
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
             LocationsQueueName = anIni.readString("Queues", "Locations", "");
             ProductsQueueName = anIni.readString("Queues", "Products", "");
             PricesQueueName = anIni.readString("Queues", "Prices", "");
+            SalesQueueName = anIni.readString("Queues", "Sales", "");
+            PermanentMarkdownsQueueName = anIni.readString("Queues", "PermanentMarkdowns", "");
+
 
             DateFrom = anIni.readInteger("SYSTEM", "SalesDateFrom", 0);
             DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
