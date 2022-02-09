@@ -143,7 +143,7 @@ namespace PolitixDaas
 
             }
 
-            discountLine.RefNumber = refNo;
+            discountLine.DiscountReasonId = refNo;
             discountLine.DiscountReason = areason;
             discountLine.Amount = amount;
         }
@@ -492,7 +492,7 @@ namespace PolitixDaas
 
             using (SqlCommand cmd = new SqlCommand(sqlstr, ersConnection))
             {
-                cmd.CommandTimeout = 300;
+                cmd.CommandTimeout = 1200;
                 using (SqlDataReader areader = cmd.ExecuteReader())
                 {
                     while (areader.Read())
@@ -557,10 +557,10 @@ namespace PolitixDaas
             String anSql = "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER], KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER], isNull(PC.BEZ_TEXT, '')PETTYCASH,  round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT], " +
                  " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP],  " +
                  " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
-                 " isNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD], " +
+                 " isNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID], " +
                  " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT], RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO]  " +
                   " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
-                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE, KAS_USTKEY " +
 
                  " from V_KASIDLTA    " +
                  " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and WAR_MANDANT = KAS_MANDANT " +
@@ -578,10 +578,10 @@ namespace PolitixDaas
                   "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER],  KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER], isNull(PC.BEZ_TEXT, '')PETTYCASH, round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT],  " +
                  " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP], " +
                  " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
-                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   " +
+                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],  IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID], " +
                  " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT],  RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO] " +
                  " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
-                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON],  KAS_VK_DATUM as REAL_DATE  " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON],  KAS_VK_DATUM as REAL_DATE, KAS_USTKEY   " +
                  " from V_KASSTRNS " +
                  " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and WAR_MANDANT = KAS_MANDANT " +
                  " LEFT JOIN V_KASSREF on KAS_REFNUMMER = KRF_REFNUMMER and KRF_MANDANT = KAS_MANDANT " +
@@ -601,10 +601,10 @@ namespace PolitixDaas
                   "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER], KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER],  isNull(PC.BEZ_TEXT, '')PETTYCASH,  round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT]," +
                  " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP], " +
                  " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
-                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   " +
+                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID],   " +
                  " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT],  RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO]  " +
                  " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
-                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE  " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY and UST_MANDANT = KAS_MANDANT order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE, KAS_USTKEY  " +
 
                  " from V_KASSE  " +
                  " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and WAR_MANDANT = KAS_MANDANT " +
@@ -654,10 +654,10 @@ namespace PolitixDaas
             salesJson.FuturaSale.TillNo = kasKasse.ToString();
             salesJson.FuturaSale.ReceiptNo = kasBonnr.ToString();
             salesJson.FuturaSale.Timestamp = timestamp;
-
+            salesJson.FuturaSale.SaleType = "NORMAL";
             salesJson.FuturaSale.SaleLines = new List<SaleLine>();
             salesJson.FuturaSale.PaymentLines = new List<PaymentLine>();
-
+            salesJson.FuturaSale.CustomerNo = custNo.ToString();
 
             int isVoid = 1;
             double totSales = 0;
@@ -749,8 +749,15 @@ namespace PolitixDaas
 
                     double paymentAmount = Convert.ToDouble(arow["KAS_BETRAG"]);
 
+                    if (arow["BEZ_RUECK_FLAG"].ToString().Equals("1"))
+                    {
+                        paymentAmount *= -1;
+                    }
+
+
                     paymentLine.Amount = paymentAmount;
                     paymentLine.PaymentType = arow["PAYMENT_METHOD"].ToString();
+                    paymentLine.PaymentTypeId = Convert.ToInt32(arow["PAYMENT_TYPE_ID"].ToString());
 
                     if (arow["PAYMENT_METHOD"].ToString().ToUpper().Contains("PETTY"))
                     {
@@ -788,7 +795,7 @@ namespace PolitixDaas
                     }
 
                     int idisc = Logging.strToIntDef(amtField, 0);
-
+                    itemExist = true;
 
                     giftcardIssue = false;
 
@@ -801,9 +808,9 @@ namespace PolitixDaas
 
                     itemExist = true;
 
-                    saleLine.Qty = aqty;
-                    saleLine.Price = Convert.ToDouble(arow["KAS_BETRAG"]);
-                    saleLine.OriginalPrice = (idisc / 100.00);
+                    saleLine.Qty = Math.Abs(aqty);
+                    saleLine.Price = Math.Abs( Convert.ToDouble(arow["KAS_BETRAG"]));
+                    saleLine.OriginalPrice = Math.Abs((idisc / 100.00));
                     saleLine.LineValueGross = Convert.ToDouble(arow["LINE_AMOUNT"]);
                     double anamount = Convert.ToDouble(arow["LINE_AMOUNT"]);
                     double anamountAbs = Math.Abs(anamount);
@@ -822,9 +829,10 @@ namespace PolitixDaas
                     {
                         anamountExTaxAbs = -1 * anamountExTaxAbs;
                     }
-
-                    saleLine.VatAmount = anamount - anamountExTaxAbs;
-                    saleLine.LineValueGross = anamount;
+                    saleLine.VatHeadEntityId = (Convert.ToInt32(arow["KAS_USTKEY"])).ToString();
+                    saleLine.VatAmount = anamountAbs - anamountExTaxAbs;
+//                    saleLine.LineValueGross = anamount;
+                    saleLine.LineValueGross = anamountAbs;
                     saleLine.LineValueNet = anamountExTaxAbs;
 
 
@@ -834,8 +842,7 @@ namespace PolitixDaas
 
 
                     saleLine.SalesPersonId = sStaffno;
-                    saleLine.CustomerId = custNo;
-                    saleLine.ProductGroupId = Convert.ToInt32(arow["PROD_GROUP_NO"]);
+                     saleLine.ProductGroupId = Convert.ToInt32(arow["PROD_GROUP_NO"]);
                     saleLine.SkuId = Convert.ToInt32(arow["KAS_REFNUMMER"]);
                     saleLine.VoucherNumber = "";
                     saleLine.VoucherPaymentTypeId = "";
@@ -856,6 +863,15 @@ namespace PolitixDaas
                     if (kasRetour == 1)
                     {
                         saleLine.SaleLineType = "RETURN";
+                        arefund = true;
+
+                        saleLine.Qty = -1 * saleLine.Qty;
+
+                        saleLine.LineValueGross = -1 * saleLine.LineValueGross;
+                        saleLine.LineValueNet = -1 * saleLine.LineValueNet;
+                        saleLine.VatAmount = -1 * saleLine.VatAmount;
+
+
                     }
 
 
@@ -865,6 +881,11 @@ namespace PolitixDaas
 
 
 
+            }
+
+            if(arefund)
+            {
+                salesJson.FuturaSale.SaleType = "RETURN";
             }
 
             salesJson.FuturaSale.EmployeeId = sStaffno;
@@ -879,7 +900,10 @@ namespace PolitixDaas
             if (!md5Contents.Equals(storedMd5))
             {
                 Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.Debug);
-                SendNewMessageQueue(SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.SalesQueueName);
+                if (paymentExist || paymentExist)
+                {
+                    SendNewMessageQueue(SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.SalesQueueName);
+                }
                 updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), kasMandant.ToString(), kasKasse.ToString(), kasBonnr.ToString(), "SALE", md5Contents, ersConnection);
             }
 
@@ -1021,7 +1045,7 @@ namespace PolitixDaas
                 " AGR_BONTEXT [ReceiptText], ISNULL(TBL.TEXT, '') [LongDescription], AGR_LIEFERANT[DeliveryType], AGR_LFARTGRP[SupplierItemGroup], " +
                 " AGR_LFARTGRP_TCOD[SupplierItemGroupIndex], ISNULL(EKB_NUMMER, 0)[ORIGEN], ISNULL(EKB_TEXT, '')[ORIGEN_TEXT], AGR_SERIENFLAG[SerialNumberEntry] , " +
                 " AGR_VK_BEREICH[SalesAreaNo], ISNULL(VKB_TEXT, '')[SalesArea], AGR_ETITYP[LabelType], AGR_ETIZAHL[LabelPerPiece], " +
-                " cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) " +
+                " cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6), WAR_TEXT[ProductGroupDescription], ABT_TEXT[SubgroupDescription], WAT_TEXT[TypeDescription] " +
                 " from V_ART_KOPF " +
                 " LEFT JOIN (SELECT ATX_WARENGR, ATX_ABTEILUNG, ATX_TYPE, ATX_GRPNUMMER, STUFF((SELECT ' ' + T2.ATX_TEXT " +
                 "     FROM V_ART_TEXT T2 " +
@@ -1032,6 +1056,9 @@ namespace PolitixDaas
                 "        ON TBL.ATX_WARENGR = AGR_WARENGR AND TBL.ATX_ABTEILUNG = AGR_ABTEILUNG AND TBL.ATX_TYPE = AGR_TYPE AND TBL.ATX_GRPNUMMER = AGR_GRPNUMMER " +
                 " LEFT JOIN V_EK_BER ON EKB_NUMMER = AGR_EK_BEREICH AND  EKB_MANDANT = 1 " +
                 " LEFT JOIN V_VK_BER ON VKB_NUMMER = AGR_VK_BEREICH AND  VKB_MANDANT = 1 " +
+                " LEFT JOIN WARENGRP ON WAR_MANDANT = 1 AND WAR_NUMMER = AGR_WARENGR " +
+                " LEFT JOIN  ABTEIL ON ABT_MANDANT = 1 AND ABT_NUMMER = AGR_ABTEILUNG " +
+                " LEFT JOIN WARENTYP ON WAT_MANDANT = 1 AND WAT_NUMMER = AGR_TYPE " +
                 " where AGR_MANDANT = 1 AND  (AGR_ULOG_DATE > " + supdateDate + " or (AGR_ULOG_DATE = " + supdateDate + " and AGR_ULOG_TIME >= 0" + supdateTime + ") )";
             //"cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
 
@@ -1067,6 +1094,11 @@ namespace PolitixDaas
                         anItem.SalesAreaNo = Convert.ToInt32(mainReader["SalesAreaNo"]);
                         anItem.SalesArea = mainReader["SalesArea"].ToString();
                         anItem.SupplierItemGroupIndex = mainReader["SupplierItemGroupIndex"].ToString();
+
+                        anItem.GroupNumberDescription = mainReader["SupplierItemDescription"].ToString();
+                        anItem.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
+                        anItem.TypeDescription = mainReader["TypeDescription"].ToString();
+                        anItem.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
 
                         anItem.ItemAttributes = new List<StockAttribute>();
                         using (SqlCommand cmd = new SqlCommand(attrSql, ersConnection))
@@ -1220,6 +1252,17 @@ namespace PolitixDaas
             {
                 lastUpdate = "20000101121223";
 
+
+                String delSql = "delete from DAAS_EXPORT where DAAS_SET_NAME = 'MARKDOWN' ";
+                using (SqlCommand cmd = new SqlCommand(delSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+             
+
+
+
+
             }
             String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -60 * 24).Substring(0, 8);
             int mdownInitialDate = dcSetup.PermanentMarkDownsInitialDate;
@@ -1299,7 +1342,11 @@ namespace PolitixDaas
                     String sku = areader["SAI_REFNUMMER"].ToString();
                     String branch = areader["SAD_FILIALE"].ToString();
                     double qty = Logging.strToDoubleDef(areader["SAD_ZAHL"].ToString(), 0);
-                    double value = Logging.strToDoubleDef(areader["SAD_WERT"].ToString(), 0);
+                    double value = Math.Truncate((Logging.strToDoubleDef(areader["SAD_WERT"].ToString(), 0) + 0.005) * 100 ) / 100.00;
+                    if( value  < 0 )
+                    {
+                        value = Math.Truncate((Logging.strToDoubleDef(areader["SAD_WERT"].ToString(), 0) - 0.005) * 100) / 100.00;
+                    }
 
 
                     String keyDatum = Logging.FuturaDateTimeAddMins(sadDatum + "060606", -24 * 60).Substring(0, 8);
@@ -1345,7 +1392,7 @@ namespace PolitixDaas
                     if (!md5Contents.Equals(storedMd5) || dcSetup.PermanentMarkdownUpdate.Equals(""))
                     {
                         Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(ajson).ToString(), dcSetup.Debug);
-                        SendNewMessageQueue(SimpleJson.SerializeObject(ajson).ToString(), dcSetup.PricesQueueName);
+                        SendNewMessageQueue(SimpleJson.SerializeObject(ajson).ToString(), dcSetup.PermanentMarkdownsQueueName);
                         updateDaasExport(ajson.PermanentMD.Date + ajson.PermanentMD.Branch, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
                             ajson.PermanentMD.SKU, "1", "MARKDOWN", md5Contents, ersConnection);
                     }
@@ -1375,8 +1422,13 @@ namespace PolitixDaas
                 sTop = " top " + dcSetup.ResultSet.ToString();
             }
 
-            String anSql = "select " + sTop + " AGR_WARENGR [ProductGroup], AGR_ABTEILUNG[Subgroup], AGR_TYPE[Type],AGR_GRPNUMMER [GroupNumber] " +
+            String anSql = "select " + sTop + " AGR_WARENGR [ProductGroup], AGR_ABTEILUNG[Subgroup], AGR_TYPE[Type],AGR_GRPNUMMER [GroupNumber], " +
+                " WAR_TEXT[ProductGroupDescription], ABT_TEXT[SubgroupDescription], WAT_TEXT[TypeDescription], AGR_TEXT [GroupNumberDescription] " + 
                 " from V_ART_KOPF " +
+                " LEFT JOIN WARENGRP ON WAR_MANDANT = 1 AND WAR_NUMMER = AGR_WARENGR " +
+                " LEFT JOIN  ABTEIL ON ABT_MANDANT = 1 AND ABT_NUMMER = AGR_ABTEILUNG " +
+                " LEFT JOIN WARENTYP ON WAT_MANDANT = 1 AND WAT_NUMMER = AGR_TYPE " +
+
                 " where AGR_MANDANT = 1 AND  cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
@@ -1398,6 +1450,10 @@ namespace PolitixDaas
                         aroot.ProductPrice.Item.Subgroup = Convert.ToInt32(mainReader["Subgroup"]);
                         aroot.ProductPrice.Item.Type = Convert.ToInt32(mainReader["Type"]);
                         aroot.ProductPrice.Item.Skus = new List<PricesSku>();
+                        aroot.ProductPrice.Item.GroupNumberDescription = mainReader["GroupNumberDescription"].ToString();
+                        aroot.ProductPrice.Item.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
+                        aroot.ProductPrice.Item.TypeDescription = mainReader["TypeDescription"].ToString();
+                        aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
 
                         String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_NEUEK_DM [PurchasePrice], " +
                             " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], " +

@@ -27,10 +27,12 @@ namespace PolitixDaas
             int i = 0;
             try
             {
+                i++;
                 dUtils = new DUtils();
+                i++;
                 timer = new Timer();
                 this.timer.Interval = dUtils.dcSetup.IntervalMins * 60 * 1000;
-
+                i++;
                 timer.Elapsed += new System.Timers.ElapsedEventHandler(timer_tick);
                 timer.Enabled = true;
                 Logging.WriteLog("Roqqio Daas Service started.");

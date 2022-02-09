@@ -16,10 +16,13 @@ namespace PolitixDaas
     public class StockItem
     {
         public int ProductGroup { get; set; }
+        public String ProductGroupDescription { get; set; }
         public int Subgroup { get; set; }
+        public String SubgroupDescription { get; set; }
         public int Type { get; set; }
+        public String TypeDescription { get; set; }
         public int GroupNumber { get; set; }
-        public string SupplierItemDescription { get; set; }
+        public String GroupNumberDescription { get; set; }
         public string ReceiptText { get; set; }
         public string LongDescription { get; set; }
         public int DeliveryType { get; set; }
@@ -32,6 +35,7 @@ namespace PolitixDaas
         public int LabelType { get; set; }
         public int LabelPerPiece { get; set; }
         public String SupplierItemGroupIndex { get; set; }
+        public string SupplierItemDescription { get; set; }
         public List<StockAttribute> ItemAttributes;
 
         public List<Sku> Skus { get; set; }
@@ -112,6 +116,10 @@ namespace PolitixDaas
         public int Subgroup { get; set; }
         public int Type { get; set; }
         public int GroupNumber { get; set; }
+        public String ProductGroupDescription { get; set; }
+        public String SubgroupDescription { get; set; }
+        public String TypeDescription { get; set; }
+        public String GroupNumberDescription { get; set; }
         public List<PricesSku> Skus { get; set; }
 
     }

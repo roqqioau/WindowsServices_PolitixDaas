@@ -41,7 +41,7 @@ namespace PolitixDaas
         public String SalesPersonId { get; set; }
         public int ProductGroupId { get; set; }
         public int SkuId { get; set; }
-        public int CustomerId { get; set; }
+        public String VatHeadEntityId { get; set; }
         public double VatPercent { get; set; }
         public double VatAmount { get; set; }  
         public String ReturnReason { get; set; }
@@ -64,6 +64,7 @@ namespace PolitixDaas
 
     public class PaymentLine
     {
+        public int PaymentTypeId { get; set; }
         public String PaymentType { get; set; }
         public double Amount { get; set; }
         public String RefNumber { get; set; }
@@ -72,10 +73,9 @@ namespace PolitixDaas
 
     public class DiscountLine
     {
+        public String DiscountReasonId { get; set; }
         public String DiscountReason { get; set; }
         public double Amount { get; set; }
-        public String RefNumber { get; set; }
-        public int LoyaltyPoints { get; set; }
 
     }
 
