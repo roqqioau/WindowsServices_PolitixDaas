@@ -16,6 +16,8 @@ namespace PolitixDaas
     public class LOCATION
     {
         public int BRANCH_NO { get; set; }
+        public String BRANCH_NAME { get; set; }
+
         public string CURRENCY { get; set; }
         public string CURRENCY_NAME { get; set; }
         public int REGION { get; set; }
@@ -58,6 +60,7 @@ namespace PolitixDaas
     public class Location
     {
         public int BranchNo { get; set; }
+        public String BranchName { get; set; }
         public string Currency { get; set; }
         public string CurrencyName{ get; set; }
         public int Region { get; set; }
@@ -70,7 +73,7 @@ namespace PolitixDaas
         public string CostCentreName { get; set; }
         public int TaxGroup { get; set; }
         public string TaxGroupName { get; set; }
-        public string FilIndex { get; set; }
+    //    public string FilIndex { get; set; }
         public string Language { get; set; }
         public string Name1 { get; set; }
         public string Name2 { get; set; }
@@ -86,6 +89,12 @@ namespace PolitixDaas
         public string Email { get; set; }
         public int Timezone { get; set; }
         public string TimezoneName { get; set; }
+        public int Priority { get; set; }
+
+        public String GstId { get; set; }
+        public String GstReg { get; set; }
+        public int AllocationPossible { get; set; }
+
         public List<ATTRIBUTE> Attributes { get; set; }
 
     }

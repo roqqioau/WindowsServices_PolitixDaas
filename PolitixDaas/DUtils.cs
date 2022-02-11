@@ -676,6 +676,9 @@ namespace PolitixDaas
 
             SaleLine saleLine = null;
 
+            int saleLineNo = 0;
+            int paymentLineNo = 0;
+
             for (int k = 0; k < dsDetails.Rows.Count; k++)
             {
                 DataRow arow = dsDetails.Rows[k];
@@ -683,6 +686,7 @@ namespace PolitixDaas
                 int recType = Convert.ToInt32(arow["KAS_SATZART"]);
                 double aqty = Convert.ToDouble(arow["KAS_ANZAHL"]);
 
+                int posNo = Convert.ToInt32(arow["KAS_POSNR"]);
 
                 int kasRetour = 0;
                 try
@@ -732,6 +736,7 @@ namespace PolitixDaas
                     {
                         DiscountLine discountLine = new DiscountLine();
                         saleLine.DiscountLines.Add(discountLine);
+                        discountLine.PosNo = posNo;
                         populateDiscount(kasMandant, arow["KAS_INFO"].ToString(), discountLine);
                     }
                 }
@@ -746,6 +751,7 @@ namespace PolitixDaas
                     paymentExist = true;
                     PaymentLine paymentLine = new PaymentLine();
                     salesJson.FuturaSale.PaymentLines.Add(paymentLine);
+                    paymentLine.PosNo = posNo;
 
                     double paymentAmount = Convert.ToDouble(arow["KAS_BETRAG"]);
 
@@ -801,6 +807,7 @@ namespace PolitixDaas
 
                     saleLine = new SaleLine();
                     salesJson.FuturaSale.SaleLines.Add(saleLine);
+                    saleLine.PosNo = posNo;
 
                     saleLine.DiscountLines = new List<DiscountLine>();
 
@@ -1152,7 +1159,7 @@ namespace PolitixDaas
                                     sku.Sort = Logging.strToIntDef(areader["Sort"].ToString(), 0);
                                     sku.UnitText = areader["UnitText"].ToString();
                                     sku.VariantText = areader["VariantText"].ToString();
-                                    sku.RefNummer = areader["RefNummer"].ToString();
+                                    sku.SpltmNo = areader["RefNummer"].ToString();
                                     sku.StatisticalPeriodNo = Logging.strToIntDef(areader["StatisticalPeriodNo"].ToString(), 0);
                                     sku.StatisticalPeriod = areader["StatisticalPeriod"].ToString();
                                     sku.MaximumDiscount = Logging.strToDoubleDef(areader["MaximumDiscount"].ToString(), 0);
@@ -1450,13 +1457,13 @@ namespace PolitixDaas
                         aroot.ProductPrice.Item.Subgroup = Convert.ToInt32(mainReader["Subgroup"]);
                         aroot.ProductPrice.Item.Type = Convert.ToInt32(mainReader["Type"]);
                         aroot.ProductPrice.Item.Skus = new List<PricesSku>();
-                        aroot.ProductPrice.Item.GroupNumberDescription = mainReader["GroupNumberDescription"].ToString();
-                        aroot.ProductPrice.Item.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
-                        aroot.ProductPrice.Item.TypeDescription = mainReader["TypeDescription"].ToString();
-                        aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
+                      //  aroot.ProductPrice.Item.GroupNumberDescription = mainReader["GroupNumberDescription"].ToString();
+                      //  aroot.ProductPrice.Item.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
+                      //  aroot.ProductPrice.Item.TypeDescription = mainReader["TypeDescription"].ToString();
+                      //  aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
 
                         String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_NEUEK_DM [PurchasePrice], " +
-                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], " +
+                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], ART_NEUGHPREIS [WS_Price], " +
                             " case " +
                             "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
                             "   else ART_EK_DM " +
@@ -1480,6 +1487,7 @@ namespace PolitixDaas
                                     anSku.SkuId = Logging.strToIntDef(areader["SkuId"].ToString(), 0);
                                     Logging.WriteLog("sku " + anSku.SkuId);
                                     anSku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
+                                    anSku.WS_Price = Logging.strToDoubleDef(areader["WS_Price"].ToString(), 0);
                                     anSku.Currency = areader["Currency"].ToString();
                                     anSku.PP_Price = Logging.strToDoubleDef(areader["PurchasePrice"].ToString(), 0);
                                     anSku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
@@ -1830,7 +1838,7 @@ namespace PolitixDaas
                             sku.Sort = Logging.strToIntDef(areader["Sort"].ToString(), 0);
                             sku.UnitText = areader["UnitText"].ToString();
                             sku.VariantText = areader["VariantText"].ToString();
-                            sku.RefNummer = areader["RefNummer"].ToString();
+                            sku.SpltmNo = areader["RefNummer"].ToString();
                             sku.StatisticalPeriodNo = Logging.strToIntDef(areader["StatisticalPeriodNo"].ToString(), 0);
                             sku.StatisticalPeriod = areader["StatisticalPeriod"].ToString();
                             sku.MaximumDiscount = Logging.strToDoubleDef(areader["MaximumDiscount"].ToString(), 0);
@@ -1974,7 +1982,7 @@ namespace PolitixDaas
                 " ISNULL(K1.KTO_TEXT, '') [POS_ACCOUNT_NAME], FIL_WARENKTO[PRODUCT_ACCOUNT],ISNULL(K2.KTO_TEXT, '')[PRODUCT_ACCOUNT_NAME], FIL_WARENKST[COST_CENTRE], ISNULL(KST_TEXT, '')[COST_CENTRE_NAME], " +
                 " FIL_STEUERGRUPPE[TAX_GROUP], ISNULL(SGR_TEXT, '')[TAX_GROUP_NAME], FIL_INDEX, ADD_SPRACHE[LANGUAGE], ANS_NAME1[NAME1], ANS_NAME2[NAME2], ANS_LAND[COUNTRY], LAN_TEXT[COUNTRY_NAME], " +
                 " ANS_COUNTY[STATE], ANS_PLZ[POSTCODE], ANS_ORT[SUBURB], rtrim(ANS_STRASSE + ' ' + ANS_STRASSE_2)[ADDRESS], ANS_TELEFON[PHONE1], ANS_TELEFON2[PHONE2], ANS_TELEFAX[FAX], ANS_EMAIL[EMAIL], " +
-                " FIL_ZEITZONE[TIMEZONE], ISNULL(ZZO_NAME_DISPLAY, '')[TIMEZONE_NAME] " +
+                " FIL_ZEITZONE[TIMEZONE], ISNULL(ZZO_NAME_DISPLAY, '')[TIMEZONE_NAME], FIL_PRIO, FIL_EGSTEUERNR, FIL_FASTEUERNR, FIL_VERTEILUNG " +
                 " from V_FILIALEN " +
                 " JOIN V_ADR_DATA ON FIL_NUMMER = ADD_NUMMER AND ADD_TYP = FIL_TYP AND ADD_MANDANT = 1 " +
                 " JOIN V_ANSCHRIF ON ANS_TYP = FIL_TYP AND ANS_NUMMER = FIL_NUMMER AND ANS_COUNT = 1 AND ANS_MANDANT = 1" +
@@ -2043,6 +2051,12 @@ namespace PolitixDaas
                 location.Email = arow["EMAIL"].ToString();
                 location.Timezone = Convert.ToInt32(arow["TIMEZONE"]);
                 location.TimezoneName = arow["TIMEZONE_NAME"].ToString();
+                location.BranchName  = arow["FIL_INDEX"].ToString();
+                location.Priority = Convert.ToInt32(arow["FIL_PRIO"]);
+
+                location.GstId = arow["FIL_EGSTEUERNR"].ToString();
+                location.GstReg = arow["FIL_FASTEUERNR"].ToString();
+                location.AllocationPossible = Convert.ToInt32(arow["FIL_VERTEILUNG"].ToString());
 
                 location.Attributes = new List<ATTRIBUTE>();
 

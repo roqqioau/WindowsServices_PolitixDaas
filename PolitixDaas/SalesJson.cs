@@ -32,6 +32,7 @@ namespace PolitixDaas
 
     public class SaleLine
     {
+        public int PosNo { get; set; }
         public String SalesMode { get; set; }
         public double Qty { get; set; }
         public double Price { get; set; }
@@ -64,6 +65,7 @@ namespace PolitixDaas
 
     public class PaymentLine
     {
+        public int PosNo { get; set; }
         public int PaymentTypeId { get; set; }
         public String PaymentType { get; set; }
         public double Amount { get; set; }
@@ -73,6 +75,7 @@ namespace PolitixDaas
 
     public class DiscountLine
     {
+        public int PosNo { get; set; }
         public String DiscountReasonId { get; set; }
         public String DiscountReason { get; set; }
         public double Amount { get; set; }

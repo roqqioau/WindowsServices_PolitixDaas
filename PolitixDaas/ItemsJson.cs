@@ -56,7 +56,7 @@ namespace PolitixDaas
         public int Sort { get; set; }
         public string UnitText { get; set; }
         public string VariantText { get; set; }
-        public string RefNummer { get; set; }
+        public string SpltmNo { get; set; }
         public int StatisticalPeriodNo { get; set; }
         public string StatisticalPeriod { get; set; }
         public double MaximumDiscount { get; set; }
@@ -116,10 +116,10 @@ namespace PolitixDaas
         public int Subgroup { get; set; }
         public int Type { get; set; }
         public int GroupNumber { get; set; }
-        public String ProductGroupDescription { get; set; }
-        public String SubgroupDescription { get; set; }
-        public String TypeDescription { get; set; }
-        public String GroupNumberDescription { get; set; }
+    //    public String ProductGroupDescription { get; set; }
+    //    public String SubgroupDescription { get; set; }
+    //    public String TypeDescription { get; set; }
+    //    public String GroupNumberDescription { get; set; }
         public List<PricesSku> Skus { get; set; }
 
     }
@@ -129,6 +129,7 @@ namespace PolitixDaas
         public int SkuId { get; set; }
         public double RT_Price { get; set; }
         public double PP_Price { get; set; }
+        public double WS_Price { get; set; }
         public string Currency { get; set; }
         public double WeightedAverageCost { get; set; }
         public List<PricePerBranch> PricesPerBranch { get; set; }
