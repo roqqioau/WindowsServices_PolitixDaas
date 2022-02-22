@@ -28,6 +28,7 @@ namespace PolitixDaas
         public String GroupNo { get; set; }
         public String SKU { get; set; }
         public String Branch { get; set; }
+        public String SadId { get; set; }
         public double Qty { get; set; }
         public double Value { get; set; }
 

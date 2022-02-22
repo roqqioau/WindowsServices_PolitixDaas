@@ -18,6 +18,7 @@ namespace PolitixDaas
 
         private Dictionary<String, String> lstDiscount = new Dictionary<string, string>();
 
+        private String DaasExportTable { get;  set; }
 
         private int ACounter { get; set; } = 0;
 
@@ -26,6 +27,11 @@ namespace PolitixDaas
         public DUtils()
         {
             dcSetup = new DCsetup();
+            DaasExportTable = "DAAS_EXPORT";
+            if(dcSetup.DevMode)
+            {
+                DaasExportTable = "DAAS_EXPORT_DEV";
+            }
         }
 
         private SqlConnection openSQLConnection()
@@ -176,7 +182,7 @@ namespace PolitixDaas
         private void updateDaasExport(String daasK1, String daasK2, String daasK3, String daasK4, String daasK5, String setName, String amd5,
             SqlConnection ersConnection)
         {
-            String anSql = " select DAAS_MD5 from DAAS_EXPORT where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
+            String anSql = " select DAAS_MD5 from " + DaasExportTable + "  where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
                 "  and DAAS_KEY4 = @DAAS_KEY4  and DAAS_KEY5 = @DAAS_KEY5 and DAAS_SET_NAME = @DAAS_SET_NAME";
             bool found = false;
 
@@ -199,12 +205,12 @@ namespace PolitixDaas
             Int64 inow = Logging.strToInt64Def(snow, 0);
 
 
-            String updateSql = "insert into DAAS_EXPORT (DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4, DAAS_KEY5, DAAS_SET_NAME, DAAS_MD5, DAAS_UPDATE_TIME) values " +
+            String updateSql = "insert into " + DaasExportTable + "  (DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4, DAAS_KEY5, DAAS_SET_NAME, DAAS_MD5, DAAS_UPDATE_TIME) values " +
                 "(@DAAS_KEY1, @DAAS_KEY2, @DAAS_KEY3, @DAAS_KEY4, @DAAS_KEY5, @DAAS_SET_NAME, @DAAS_MD5, @DAAS_UPDATE_TIME)";
 
             if (found)
             {
-                updateSql = "update DAAS_EXPORT set DAAS_MD5 = @DAAS_MD5, DAAS_UPDATE_TIME = @DAAS_UPDATE_TIME where " +
+                updateSql = "update " + DaasExportTable + "  set DAAS_MD5 = @DAAS_MD5, DAAS_UPDATE_TIME = @DAAS_UPDATE_TIME where " +
                     " DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 and DAAS_KEY4 = @DAAS_KEY4  " +
                     " and DAAS_KEY5 = @DAAS_KEY5 and DAAS_SET_NAME = @DAAS_SET_NAME";
             }
@@ -229,7 +235,7 @@ namespace PolitixDaas
             SqlConnection ersConnection)
         {
             String res = "";
-            String anSql = " select DAAS_MD5 from DAAS_EXPORT  WITH(NOLOCK)  where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
+            String anSql = " select DAAS_MD5 from " + DaasExportTable + "  WITH(NOLOCK)  where DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY1 = @DAAS_KEY1 and DAAS_KEY2 = @DAAS_KEY2 and DAAS_KEY3 = @DAAS_KEY3 " +
                  "  and DAAS_KEY4 = @DAAS_KEY4  and DAAS_KEY5 = @DAAS_KEY5 and DAAS_SET_NAME = @DAAS_SET_NAME and DAAS_UPDATE_TIME <= @DAAS_UPDATE_TIME";
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -289,7 +295,7 @@ namespace PolitixDaas
         {
             int custNo = 0;
 
-            int apos = kasInfo.IndexOf(" 03 ");
+            int apos = kasInfo.IndexOf(" 03");
             if (apos < 0)
                 return custNo;
 
@@ -349,7 +355,8 @@ namespace PolitixDaas
         private int getCustNoFromTransaction(SqlConnection ersConnection, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr, int kasMandant)
         {
 
-            String asql = "select  KAS_INFO from KASSTRNS  WITH (NOLOCK) where  KAS_INFO like '% 03 %' and KAS_SATZART = 16 " +
+ //           String asql = "select  KAS_INFO from KASSTRNS  WITH (NOLOCK) where  KAS_INFO like '% 03 %' and KAS_SATZART = 16 " +
+            String asql = "select  KAS_INFO from KASSTRNS  WITH (NOLOCK) where    KAS_INFO like '% 03%' and KAS_SATZART = 16 " +
                 " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
                 " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() + " and KAS_MANDANT = " + kasMandant.ToString();
 
@@ -366,7 +373,7 @@ namespace PolitixDaas
             {
                 return getCustNo(kasInfo);
             }
-            asql = "select  KAS_INFO from KASIDLTA  WITH (NOLOCK) where  KAS_INFO like '% 03 %' and KAS_SATZART = 16 " +
+            asql = "select  KAS_INFO from KASIDLTA  WITH (NOLOCK) where     KAS_INFO like '% 03%' and KAS_SATZART = 16 " +
                 " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
                 " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() + " and KAS_MANDANT = " + kasMandant.ToString();
 
@@ -383,7 +390,7 @@ namespace PolitixDaas
                 return getCustNo(kasInfo);
             }
 
-            asql = "select  KAS_INFO from KASSE  WITH (NOLOCK) where  KAS_INFO like '% 03 %' and KAS_SATZART = 16 " +
+            asql = "select  KAS_INFO from KASSE  WITH (NOLOCK) where   KAS_INFO like '% 03%' and   KAS_SATZART = 16 " +
                 " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
                 " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() + " and KAS_MANDANT = " + kasMandant.ToString();
 
@@ -413,7 +420,7 @@ namespace PolitixDaas
             String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
             if (sqlLastUpdate.Equals("0"))
             {
-                String anSql = "delete from DAAS_EXPORT where DAAS_SET_NAME = 'SALE' ";
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALE' ";
                 using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
                 {
                     cmd.ExecuteNonQuery();
@@ -445,7 +452,7 @@ namespace PolitixDaas
                 " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER and F.FIL_MANDANT = K.KAS_MANDANT" +
                 " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
                 " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
-                " and not exists(select * from DAAS_EXPORT D " +
+                " and not exists(select * from " + DaasExportTable + " D " +
                 "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
                 "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE'  ) " +
 
@@ -461,7 +468,7 @@ namespace PolitixDaas
                 " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
                 " where ((K.KAS_VK_DATUM > " + anInterval + " and  K.KAS_VK_DATUM > " + startingDate + ") or (K.KAS_VK_DATUM >= " + dateFrom + " and K.KAS_VK_DATUM <= " + dateTo + ") ) " +
 
-                " and not exists(select * from DAAS_EXPORT D " +
+                " and not exists(select * from " + DaasExportTable + " D " +
                 "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
                 "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE' ) " +
 
@@ -476,7 +483,7 @@ namespace PolitixDaas
                 " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER and F.FIL_MANDANT = K.KAS_MANDANT" +
                 " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX and ZZO_MANDANT = K.KAS_MANDANT " +
                 " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
-                " and not exists(select * from DAAS_EXPORT D " +
+                " and not exists(select * from " + DaasExportTable + " D " +
                 "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 and K.KAS_MANDANT = DAAS_KEY3 " +
                 "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALE'  ) " +
                 " and not exists(select * from V_KASSE D  " +
@@ -571,7 +578,7 @@ namespace PolitixDaas
                  " left join V_BEZ_ART P on LTRIM(RTrim(substring(KAS_INFO,7,2))) = RTRIM(LTrim(Str(P.BEZ_NUMMER, 3))) and P.BEZ_MANDANT = KAS_MANDANT  " +
                  " left join V_BEZ_ART BG on LTRIM(Str(BG.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and  SubString(KAS_INFO, 13, 2) = '03' and BG.BEZ_SPEZIAL_BEZ = 1 and BG.BEZ_MANDANT = KAS_MANDANT " +
                  " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2)))  and PC.BEZ_MANDANT = KAS_MANDANT " +
-                 " left join V_RETGRUND on LTRIM(RTRIM(KAS_INFO)) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) AND RTG_MANDANT = @KAS_MANDANT " +
                  " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
                  " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT" +
                  " union " +
@@ -593,7 +600,7 @@ namespace PolitixDaas
                  //                " where KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() + 
                  //                " and KAS_KASSE = " + kasKasse.ToString() + " and  KAS_BONNR = " + kasBonnr + " " +
                  " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2)))  and PC.BEZ_MANDANT = KAS_MANDANT " +
-                 " left join V_RETGRUND on LTRIM(RTRIM(KAS_INFO)) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) AND RTG_MANDANT = @KAS_MANDANT " +
                  " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
                  " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT " +
 
@@ -615,7 +622,7 @@ namespace PolitixDaas
                  " left join V_BEZ_ART P on LTRIM(RTrim(substring(KAS_INFO,7,2))) = RTRIM(LTrim(Str(P.BEZ_NUMMER, 3))) and P.BEZ_MANDANT = KAS_MANDANT  " +
                  " left join V_BEZ_ART BG on LTRIM(Str(BG.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and  SubString(KAS_INFO, 13, 2) = '03' and BG.BEZ_SPEZIAL_BEZ = 1 and BG.BEZ_MANDANT = KAS_MANDANT  " +
                  " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2)))  and PC.BEZ_MANDANT = KAS_MANDANT " +
-                 " left join V_RETGRUND on LTRIM(RTRIM(KAS_INFO)) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) AND RTG_MANDANT = @KAS_MANDANT " +
                  " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
                  " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT" +
 
@@ -626,7 +633,7 @@ namespace PolitixDaas
             //    Logging.WriteLog(anSql);
             using (SqlDataAdapter daTrans = new SqlDataAdapter(anSql, ersConnection))
             {
-                daTrans.SelectCommand.CommandTimeout = 300;
+                daTrans.SelectCommand.CommandTimeout = 600;
                 daTrans.SelectCommand.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
                 daTrans.SelectCommand.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
                 daTrans.SelectCommand.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
@@ -661,7 +668,7 @@ namespace PolitixDaas
 
             int isVoid = 1;
             double totSales = 0;
-            double totRef = 0;
+            double totAmountPaid = 0;
             bool arefund = false;
             bool apurchase = false;
             String taxName = "";
@@ -712,14 +719,14 @@ namespace PolitixDaas
 
                 if (recType == 17)
                 {
-                    String astr = arow["KAS_INFO"].ToString().Trim();
-                    if (astr.ToUpper().Contains("LAYB"))
-                    {
-                        if (saleLine != null)
-                        {
-                            saleLine.SalesMode = "LAYAWAY";
-                        }
-                    }
+                  //  String astr = arow["KAS_INFO"].ToString().Trim();
+                  //  if (astr.ToUpper().Contains("LAYB"))
+                  //  {
+                  //      if (saleLine != null)
+                  //      {
+                  //          saleLine.SalesMode = "LAYAWAY";
+                  //      }
+                  //  }
                 }
 
 
@@ -775,6 +782,8 @@ namespace PolitixDaas
                     afterPayId = "";
 
                     paymentLine.Currency = localCurrency;
+
+                    totAmountPaid += paymentAmount;
 
                 }
 
@@ -866,6 +875,8 @@ namespace PolitixDaas
                         }
                     }
 
+                    saleLine.ReturnReason = "";
+
                     saleLine.SaleLineType = "SALE";
                     if (kasRetour == 1)
                     {
@@ -877,10 +888,11 @@ namespace PolitixDaas
                         saleLine.LineValueGross = -1 * saleLine.LineValueGross;
                         saleLine.LineValueNet = -1 * saleLine.LineValueNet;
                         saleLine.VatAmount = -1 * saleLine.VatAmount;
-
+                        saleLine.ReturnReason = arow["REFUND_REASON"].ToString();
+                        saleLine.SalesMode = "RETOUR";
 
                     }
-
+                    totSales += saleLine.LineValueGross;
 
                 }
 
@@ -893,6 +905,11 @@ namespace PolitixDaas
             if(arefund)
             {
                 salesJson.FuturaSale.SaleType = "RETURN";
+            }
+
+            if(!itemExist)
+            {
+                salesJson.FuturaSale.SaleType = "LAYBY";
             }
 
             salesJson.FuturaSale.EmployeeId = sStaffno;
@@ -983,9 +1000,8 @@ namespace PolitixDaas
 
 
 
-                int aRem = ACounter % dcSetup.LocationModule;
-                Logging.WriteDebug("aRem: " + aRem.ToString(), dcSetup.Debug);
-                if (aRem == 0 && (!dcSetup.BlockLocations))
+                int aRem = 0;
+               if (aRem == 0 && (!dcSetup.BlockLocations))
                 {
                     getLocations(ersConnection);
                 }
@@ -1072,7 +1088,8 @@ namespace PolitixDaas
             Logging.WriteDebug(anSql, dcSetup.Debug)
 ;
 
-            String attrSql = "select ARC_CODE, ARC_VALUE, ARC_TEXT from V_ART_CODE WHERE " +
+            String attrSql = "select ARC_CODE, ARC_VALUE, ARC_TEXT,  ISNULL(AEN_TEXT, '') [DESCRIPTION ]  FROM V_ART_CODE " +
+                "LEFT JOIN ACODENUM ON AEN_MANDANT = ARC_MANDANT AND AEN_CODE = ARC_CODE AND AEN_ENUM = ARC_VALUE WHERE " +
                 " ARC_MANDANT = 1 AND ARC_WARENGR = @ARC_WARENGR AND ARC_ABTEILUNG = @ARC_ABTEILUNG AND ARC_TYPE = @ARC_TYPE AND ARC_GRPNUMMER = @ARC_GRPNUMMER";
 
 
@@ -1102,7 +1119,7 @@ namespace PolitixDaas
                         anItem.SalesArea = mainReader["SalesArea"].ToString();
                         anItem.SupplierItemGroupIndex = mainReader["SupplierItemGroupIndex"].ToString();
 
-                        anItem.GroupNumberDescription = mainReader["SupplierItemDescription"].ToString();
+                      //  anItem.GroupNumberDescription = mainReader["SupplierItemDescription"].ToString();
                         anItem.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
                         anItem.TypeDescription = mainReader["TypeDescription"].ToString();
                         anItem.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
@@ -1123,6 +1140,7 @@ namespace PolitixDaas
                                     anAttribute.Code = areader.GetString(0);
                                     anAttribute.Value = areader.GetInt32(1);
                                     anAttribute.Text = areader.GetString(2);
+                                    anAttribute.Description = areader.GetString(3);
                                 }
 
                             }
@@ -1131,7 +1149,8 @@ namespace PolitixDaas
                         String skuSql = "select ART_REFNUMMER[SkuId], ART_SORTIERUNG[Sort], ART_EINHEITTEXT[UnitText], ART_EIGENTEXT[VariantText], ART_LFID_NUMMER[RefNummer], " +
                             " ART_SAISON[StatisticalPeriodNo], SPE_TEXT[StatisticalPeriod], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], " +
                             " ART_CMP_TYP[QtyTypeForComparativePrice], ART_CMP_ISTMENGE[ComparativeQtyForComparativePrice], ART_CMP_REFMENGE[QtyForComparativePrice], " +
-                            " ART_ZWEIT_LFID[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency], ART_NEUEK_DM [PurchasePrice],ART_ZWEITLIEFERANT [PO_Supplier], " +
+                            //  " ART_ZWEIT_LFID[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency], ART_NEUEK_DM [PurchasePrice],ART_ZWEITLIEFERANT [PO_Supplier], " +
+                            " ART_LFID_NUMMER[POSupplierItemNumber], ART_VKPREIS[RT_Price], ART_EKWAEHRUNG[Currency], ART_EK_DM [PurchasePrice],ART_ZWEITLIEFERANT [PO_Supplier], " +
                             " case " +
                             "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
                             "   else ART_EK_DM " +
@@ -1164,7 +1183,7 @@ namespace PolitixDaas
                                     sku.StatisticalPeriod = areader["StatisticalPeriod"].ToString();
                                     sku.MaximumDiscount = Logging.strToDoubleDef(areader["MaximumDiscount"].ToString(), 0);
                                     sku.FixedPrice = Logging.strToDoubleDef(areader["FixedPrice"].ToString(), 0);
-                                    sku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
+                                 //   sku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
                                     sku.POSupplierItemNumber = areader["POSupplierItemNumber"].ToString();
                                     sku.QtyTypeForComparativePrice = areader["QtyTypeForComparativePrice"].ToString();
                                     sku.ComparativeQtyForComparativePrice = Logging.strToDoubleDef(areader["ComparativeQtyForComparativePrice"].ToString(), 0);
@@ -1191,7 +1210,9 @@ namespace PolitixDaas
                                         }
                                     }
 
-                                    String attrSkuSql = "select ADC_CODE, ADC_VALUE, ADC_TEXT from V_ART_DCOD where ADC_MANDANT = 1 AND ADC_REFNUMMER = @ADC_REFNUMMERY";
+                                    String attrSkuSql = "select ADC_CODE, ADC_VALUE, ADC_TEXT,  ISNULL(AEN_TEXT, '') [DESCRIPTION] from V_ART_DCOD " +
+                                    " LEFT JOIN ACODENUM ON AEN_MANDANT = ADC_MANDANT AND AEN_CODE = ADC_CODE AND AEN_ENUM = ADC_VALUE " +
+                                    " where ADC_MANDANT = 1 AND ADC_REFNUMMER = @ADC_REFNUMMERY";
                                     sku.skuAttributes = new List<StockAttribute>();
 
                                     using (SqlCommand attrCmd = new SqlCommand(attrSkuSql, ersConnection))
@@ -1210,6 +1231,7 @@ namespace PolitixDaas
                                                     anAttribute.Code = attrReader["ADC_CODE"].ToString();
                                                     anAttribute.Text = attrReader["ADC_TEXT"].ToString();
                                                     anAttribute.Value = Logging.strToIntDef(attrReader["ADC_VALUE"].ToString(), 0);
+                                                    anAttribute.Description = attrReader["DESCRIPTION"].ToString();
                                                 }
                                             }
                                         }
@@ -1260,7 +1282,7 @@ namespace PolitixDaas
                 lastUpdate = "20000101121223";
 
 
-                String delSql = "delete from DAAS_EXPORT where DAAS_SET_NAME = 'MARKDOWN' ";
+                String delSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'MARKDOWN' ";
                 using (SqlCommand cmd = new SqlCommand(delSql, ersConnection))
                 {
                     cmd.ExecuteNonQuery();
@@ -1326,9 +1348,11 @@ namespace PolitixDaas
                 }
             }
 
+
+
             String lastUpdateShort = lastUpdate.Substring(0, 8);
 
-            String mainSql = "select SAD_DATUM,SAI_WARENGR, SAI_ABTEILUNG, SAI_TYPE, SAI_GRPNUMMER, SAI_REFNUMMER, SAD_FILIALE,SAD_ZAHL,SAD_WERT from STATADTA " +
+            String mainSql = "select SAD_DATUM,SAI_WARENGR, SAI_ABTEILUNG, SAI_TYPE, SAI_GRPNUMMER, SAI_REFNUMMER, SAD_FILIALE,SAD_ZAHL,SAD_WERT, SAD_ID from STATADTA " +
                 " JOIN STATAIDX on SAD_ID = SAI_ID  and SAI_MANDANT = SAD_MANDANT " +
                 " JOIN FILIALEN on SAD_MANDANT = FIL_MANDANT and SAD_FILIALE = FIL_NUMMER " +
                 " where SAD_MANDANT = 1 and SAD_KENNUNG = 1 and SAD_DATUM >= " + lastUpdateShort + " and SAD_DATUM >= " +
@@ -1336,7 +1360,9 @@ namespace PolitixDaas
                 " and FIL_ARTTRANS_VK in (0, -2) " +
                 " order by SAD_DATUM, SAI_REFNUMMER, SAD_FILIALE";
 
-            using(SqlCommand cmd = new SqlCommand(mainSql, ersConnection))
+            Logging.WriteDebug(mainSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(mainSql, ersConnection))
             {
                 SqlDataReader areader = cmd.ExecuteReader();
                 while(areader.Read())
@@ -1370,7 +1396,7 @@ namespace PolitixDaas
                     ajson.PermanentMD.Date = sadDatum;
                     ajson.PermanentMD.ID = sadDatum + "/0";
                     ajson.PermanentMD.Description = "manual markdown";
-
+                    ajson.PermanentMD.SadId = areader["SAD_ID"].ToString();
                     Markdown amarkdown = null;
                     if (prAends.ContainsKey(akey))
                     {
@@ -1462,7 +1488,7 @@ namespace PolitixDaas
                       //  aroot.ProductPrice.Item.TypeDescription = mainReader["TypeDescription"].ToString();
                       //  aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
 
-                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_NEUEK_DM [PurchasePrice], " +
+                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_EK_DM [PurchasePrice], " +
                             " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], ART_NEUGHPREIS [WS_Price], " +
                             " case " +
                             "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
@@ -1979,10 +2005,10 @@ namespace PolitixDaas
 
             String locSql = " select " + sTop + " FIL_TYP, FIL_NUMMER[BRANCH_NO], FIL_WAEHRUNG [CURRENCY], WAE_TEXT [CURRENCY_NAME], FIL_REGION [REGION], FIL_KASSENKTO [POS_ACCOUNT], " +
                 " isnull((select max (REG_TEXT) from V_REGION where REG_NUMMER = FIL_REGION AND REG_MANDANT = 1), '') [REGION_NAME], " +
-                " ISNULL(K1.KTO_TEXT, '') [POS_ACCOUNT_NAME], FIL_WARENKTO[PRODUCT_ACCOUNT],ISNULL(K2.KTO_TEXT, '')[PRODUCT_ACCOUNT_NAME], FIL_WARENKST[COST_CENTRE], ISNULL(KST_TEXT, '')[COST_CENTRE_NAME], " +
+                " ISNULL(K1.KTO_TEXT, '') [POS_ACCOUNT_NAME], FIL_WARENKTO[PRODUCT_ACCOUNT],ISNULL(K2.KTO_TEXT, '')[PRODUCT_ACCOUNT_NAME], FIL_WARENKST[COST_CENTRE], ISNULL(KO.KST_TEXT, '')[COST_CENTRE_NAME], " +
                 " FIL_STEUERGRUPPE[TAX_GROUP], ISNULL(SGR_TEXT, '')[TAX_GROUP_NAME], FIL_INDEX, ADD_SPRACHE[LANGUAGE], ANS_NAME1[NAME1], ANS_NAME2[NAME2], ANS_LAND[COUNTRY], LAN_TEXT[COUNTRY_NAME], " +
                 " ANS_COUNTY[STATE], ANS_PLZ[POSTCODE], ANS_ORT[SUBURB], rtrim(ANS_STRASSE + ' ' + ANS_STRASSE_2)[ADDRESS], ANS_TELEFON[PHONE1], ANS_TELEFON2[PHONE2], ANS_TELEFAX[FAX], ANS_EMAIL[EMAIL], " +
-                " FIL_ZEITZONE[TIMEZONE], ISNULL(ZZO_NAME_DISPLAY, '')[TIMEZONE_NAME], FIL_PRIO, FIL_EGSTEUERNR, FIL_FASTEUERNR, FIL_VERTEILUNG " +
+                " FIL_ZEITZONE[TIMEZONE], ISNULL(ZZO_NAME_DISPLAY, '')[TIMEZONE_NAME], FIL_PRIO, FIL_EGSTEUERNR, FIL_FASTEUERNR, FIL_VERTEILUNG, FIL_KASSENKST [COST_OF_GOODS], ISNULL(KP.KST_TEXT, '')[COST_OF_GOODS_DESCRIPTION]  " +
                 " from V_FILIALEN " +
                 " JOIN V_ADR_DATA ON FIL_NUMMER = ADD_NUMMER AND ADD_TYP = FIL_TYP AND ADD_MANDANT = 1 " +
                 " JOIN V_ANSCHRIF ON ANS_TYP = FIL_TYP AND ANS_NUMMER = FIL_NUMMER AND ANS_COUNT = 1 AND ANS_MANDANT = 1" +
@@ -1990,7 +2016,8 @@ namespace PolitixDaas
                 " LEFT JOIN V_WAEHRUNG ON WAE_CODE = FIL_WAEHRUNG AND WAE_MANDANT = 1 " +
                 " LEFT JOIN V_KONTO K1 ON K1.KTO_NUMMER = FIL_KASSENKTO AND K1.KTO_MANDANT = 1 " +
                 " LEFT JOIN V_KONTO K2 ON K2.KTO_NUMMER = FIL_WARENKTO  AND K2.KTO_MANDANT = 1 " +
-                " LEFT JOIN V_KOSTENST ON KST_NUMMER = FIL_WARENKST AND KST_MANDANT = 1 " +
+                " LEFT JOIN V_KOSTENST KO ON KO.KST_NUMMER = FIL_WARENKST AND KO.KST_MANDANT = 1 " +
+                " LEFT JOIN V_KOSTENST KP ON KP.KST_NUMMER = FIL_KASSENKST AND KO.KST_MANDANT = 1 " +
                 " LEFT JOIN V_STEUER_G ON SGR_NUMMER = FIL_STEUERGRUPPE AND SGR_MANDANT = 1 " +
                 " LEFT JOIN V_ZEITZONE ON ZZO_INDEX = FIL_ZEITZONE AND ZZO_MANDANT = 1" + 
                 " where FIL_MANDANT = 1 " ;
@@ -2007,7 +2034,17 @@ namespace PolitixDaas
                 return;
 
 
-            String attrSql = "select AAV_CODE, AAV_UNIQUE, AAV_VALUE, AAV_TEXT from V_ADRATVAL WHERE AAV_TYP = @AAV_TYP AND AAV_NUMMER = @AAV_NUMMER AND AAV_MANDANT = 1 ";
+            String attrSql = "select AAV_CODE, AAV_UNIQUE, AAV_VALUE, AAV_TEXT, ISNULL(AAE_TEXT, '') [DESCRIPTION ]  " + 
+                " from V_ADRATVAL " +
+                " LEFT JOIN ADRATENU ON AAE_MANDANT = AAV_MANDANT AND AAE_CODE = AAV_CODE AND AAE_ENUM = AAV_VALUE " +
+                " WHERE AAV_TYP = @AAV_TYP AND AAV_NUMMER = @AAV_NUMMER AND AAV_MANDANT = 1 ";
+
+
+            String addrSql = "select ANS_COUNT, ANS_NAME1[NAME1], ANS_NAME2[NAME2], ANS_LAND[COUNTRY], ANS_COUNTY[STATE], ANS_PLZ[POSTCODE], ANS_ORT[SUBURB], " +
+                " rtrim(ANS_STRASSE + ' ' + ANS_STRASSE_2)[ADDRESS], ANS_TELEFON[PHONE1], ANS_TELEFON2[PHONE2], ANS_TELEFAX[FAX], ANS_EMAIL[EMAIL], LAN_TEXT[COUNTRY_NAME] " +
+                " from V_ANSCHRIF " +
+                " JOIN V_LAND ON ANS_LAND = LAN_NUMMER  and LAN_MANDANT = 1 " +
+                " where ANS_MANDANT = 1 AND ANS_TYP = @AAV_TYP AND ANS_NUMMER =  @AAV_NUMMER";
 
             for (int k = 0; k < dsLocations.Rows.Count; k++)
             {
@@ -2019,7 +2056,6 @@ namespace PolitixDaas
                 DataRow arow = dsLocations.Rows[k];
                 int filTyp = Convert.ToInt32(arow["FIL_TYP"]);
 
-                location.Address = arow["ADDRESS"].ToString();
                 location.RegionName = arow["REGION_NAME"].ToString();
                 location.Region = Convert.ToInt32(arow["REGION"]);
 
@@ -2037,6 +2073,18 @@ namespace PolitixDaas
                 location.TaxGroup = Convert.ToInt32(arow["TAX_GROUP"]);
                 location.TaxGroupName = arow["TAX_GROUP_NAME"].ToString();
                 location.Language = arow["LANGUAGE"].ToString();
+                location.Timezone = Convert.ToInt32(arow["TIMEZONE"]);
+                location.TimezoneName = arow["TIMEZONE_NAME"].ToString();
+                location.BranchName  = arow["FIL_INDEX"].ToString();
+                location.Priority = Convert.ToInt32(arow["FIL_PRIO"]);
+
+                location.GstId = arow["FIL_EGSTEUERNR"].ToString();
+                location.GstReg = arow["FIL_FASTEUERNR"].ToString();
+                location.AllocationPossible = Convert.ToInt32(arow["FIL_VERTEILUNG"].ToString());
+                location.CostOfGoods = Convert.ToInt32(arow["COST_OF_GOODS"].ToString());
+                location.CostOfGoodsDescription = arow["COST_OF_GOODS_DESCRIPTION"].ToString();
+
+                location.Address = arow["ADDRESS"].ToString();
                 location.Name1 = arow["NAME1"].ToString();
                 location.Name2 = arow["NAME2"].ToString();
                 location.Country = Convert.ToInt32(arow["COUNTRY"]);
@@ -2049,14 +2097,8 @@ namespace PolitixDaas
                 location.Phone2 = arow["PHONE2"].ToString();
                 location.Fax = arow["FAX"].ToString();
                 location.Email = arow["EMAIL"].ToString();
-                location.Timezone = Convert.ToInt32(arow["TIMEZONE"]);
-                location.TimezoneName = arow["TIMEZONE_NAME"].ToString();
-                location.BranchName  = arow["FIL_INDEX"].ToString();
-                location.Priority = Convert.ToInt32(arow["FIL_PRIO"]);
 
-                location.GstId = arow["FIL_EGSTEUERNR"].ToString();
-                location.GstReg = arow["FIL_FASTEUERNR"].ToString();
-                location.AllocationPossible = Convert.ToInt32(arow["FIL_VERTEILUNG"].ToString());
+
 
                 location.Attributes = new List<ATTRIBUTE>();
 
@@ -2076,10 +2118,13 @@ namespace PolitixDaas
                             anAttribute.Unique = areader.GetInt16(1);
                             anAttribute.Value = areader.GetInt32(2);
                             anAttribute.Text = areader.GetString(3);
+                            anAttribute.Description = areader.GetString(4);
 
                         }
                     }
                 }
+
+ 
 
                 String jsonContents = SimpleJson.SerializeObject(locationsJson).ToString();
 

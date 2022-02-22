@@ -49,18 +49,50 @@ namespace PolitixDaas
         public List<ATTRIBUTE> ATTRIBUTES { get; set; }
     }
 
+    public class LocationAddress
+    {
+        public String AnsCount { get; set; }
+        public string Name1 { get; set; }
+        public string Name2 { get; set; }
+        public int Country { get; set; }
+        public string CountryName { get; set; }
+        public string State { get; set; }
+        public string Postcode { get; set; }
+        public string Suburb { get; set; }
+        public string Address { get; set; }
+        public string Phone1 { get; set; }
+        public string Phone2 { get; set; }
+        public string Fax { get; set; }
+        public string Email { get; set; }
+
+    }
+
     public class ATTRIBUTE
     {
         public String Code { get; set; }
         public int Unique { get; set; }
         public int Value { get; set; }
         public String Text { get; set; }
+        public String Description { get; set; }
     }
 
     public class Location
     {
         public int BranchNo { get; set; }
         public String BranchName { get; set; }
+        public string Name1 { get; set; }
+        public string Name2 { get; set; }
+        public int Country { get; set; }
+        public string CountryName { get; set; }
+        public string State { get; set; }
+        public string Postcode { get; set; }
+        public string Suburb { get; set; }
+        public string Address { get; set; }
+        public string Phone1 { get; set; }
+        public string Phone2 { get; set; }
+        public string Fax { get; set; }
+        public string Email { get; set; }
+
         public string Currency { get; set; }
         public string CurrencyName{ get; set; }
         public int Region { get; set; }
@@ -75,18 +107,6 @@ namespace PolitixDaas
         public string TaxGroupName { get; set; }
     //    public string FilIndex { get; set; }
         public string Language { get; set; }
-        public string Name1 { get; set; }
-        public string Name2 { get; set; }
-        public int Country { get; set; }
-        public string CountryName { get; set; }
-        public string State { get; set; }
-        public string Postcode { get; set; }
-        public string Suburb { get; set; }
-        public string Address { get; set; }
-        public string Phone1 { get; set; }
-        public string Phone2 { get; set; }
-        public string Fax { get; set; }
-        public string Email { get; set; }
         public int Timezone { get; set; }
         public string TimezoneName { get; set; }
         public int Priority { get; set; }
@@ -94,6 +114,9 @@ namespace PolitixDaas
         public String GstId { get; set; }
         public String GstReg { get; set; }
         public int AllocationPossible { get; set; }
+
+        public int CostOfGoods { get; set; }
+        public String CostOfGoodsDescription { get; set; }
 
         public List<ATTRIBUTE> Attributes { get; set; }
 

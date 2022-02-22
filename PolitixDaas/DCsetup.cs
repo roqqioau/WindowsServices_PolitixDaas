@@ -48,6 +48,8 @@ namespace PolitixDaas
         public bool BlockSales { get; set; }
         public bool BlockPermanentMarkdowns { get; set; }
 
+        public bool DevMode { get; set; }
+
 
         public String PermanentMarkdownUpdate
         {
@@ -207,6 +209,9 @@ namespace PolitixDaas
 
             String sBlockPermanentMarkdowns = anIni.readString("SYSTEM", "BlockPermanentMarkdowns", "");
             BlockPermanentMarkdowns = sBlockPermanentMarkdowns.Equals("1") || sBlockPermanentMarkdowns.ToUpper().Equals("Y");
+
+            String sDevMode = anIni.readString("SYSTEM", "DevMode", "");
+            DevMode = sDevMode.Equals("1") || sDevMode.ToUpper().Equals("Y");
 
             ResultSet = anIni.readInteger("SYSTEM", "ResultSet", 0);
             Debug = anIni.readInteger("SYSTEM", "Debug", 0);

@@ -22,7 +22,7 @@ namespace PolitixDaas
         public int Type { get; set; }
         public String TypeDescription { get; set; }
         public int GroupNumber { get; set; }
-        public String GroupNumberDescription { get; set; }
+    //    public String GroupNumberDescription { get; set; }
         public string ReceiptText { get; set; }
         public string LongDescription { get; set; }
         public int DeliveryType { get; set; }
@@ -47,6 +47,7 @@ namespace PolitixDaas
         public String Code { get; set; }
         public int Value { get; set; }
         public String Text { get; set; }
+        public String Description { get; set; }
 
     }
 
@@ -69,7 +70,7 @@ namespace PolitixDaas
         public double RT_Price { get; set; }
         public double PP_Price { get; set; }
         public string Currency { get; set; }
-        public double WeightedAverageCost { get; set; }
+     //   public double WeightedAverageCost { get; set; }
         public List<EanCode> EanCodes { get; set; }
    //     public List<PricePerBranch> PricesPerBranch { get; set; }
    //     public List<PricePerCode> Prices { get; set; }
