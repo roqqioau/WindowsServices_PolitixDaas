@@ -24,6 +24,7 @@ namespace PolitixDaas
         public String CustomerNo { get; set; }
         public String EmployeeId { get; set; }
         public String Timestamp { get; set; }
+        public String TransactionDate { get; set; }
         public List<SaleLine> SaleLines { get; set; }
         public List<PaymentLine> PaymentLines { get; set; }
 
