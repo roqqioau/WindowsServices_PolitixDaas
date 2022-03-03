@@ -299,7 +299,28 @@ namespace PolitixDaas
             int apos = kasInfo.IndexOf(" 03");
             if(apos < 0)
             {
-                apos = kasInfo.IndexOf(" 01");
+                apos = kasInfo.IndexOf(" 13");
+            }
+
+
+            if(apos < 0)
+            {
+                apos = kasInfo.IndexOf(" 01 ");
+                is01 = true;
+            }
+            if (apos < 0)
+            {
+                apos = kasInfo.IndexOf(" 11 ");
+                is01 = true;
+            }
+            if (apos < 0)
+            {
+                apos = kasInfo.IndexOf(" 21 ");
+                is01 = true;
+            }
+            if (apos < 0)
+            {
+                apos = kasInfo.IndexOf(" 31 ");
                 is01 = true;
             }
             if (apos < 0)
@@ -1521,7 +1542,7 @@ namespace PolitixDaas
                       //  aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
 
                         String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_EK_DM [PurchasePrice], " +
-                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], ART_NEUGHPREIS [WS_Price], " +
+                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], ART_GHPREIS [WS_Price], " +
                             " case " +
                             "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
                             "   else ART_EK_DM " +
@@ -1550,7 +1571,9 @@ namespace PolitixDaas
                                     anSku.PP_Price = Logging.strToDoubleDef(areader["PurchasePrice"].ToString(), 0);
                                     anSku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
 
-                                    String priceSql = "select APR_PREISLINIE, APR_VKPREIS, APR_VKP_DATUM from V_ART_PRGR WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
+                                    String priceSql = "select   APR_PREISLINIE, APR_VKPREIS, iSnULL(AAP_DATUM, APR_VKP_DATUM) [APR_VKP_DATUM] from V_ART_PRGR " + 
+                                        " LEFT JOIN V_ART_PHST ON AAP_MANDANT = 1 AND AAP_REFNUMMER = APR_REFNUMMER AND AAP_PREISLINIE = APR_PREISLINIE AND APR_VKPREIS = AAP_ALTPREIS " +
+                                        " WHERE APR_MANDANT = 1 AND APR_REFNUMMER = @APR_REFNUMMERY ";
                                     anSku.Prices = new List<PricePerCode>();
                                     using (SqlCommand pricesCmd = new SqlCommand(priceSql, ersConnection))
                                     {
