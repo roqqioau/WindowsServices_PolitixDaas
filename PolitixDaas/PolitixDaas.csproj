@@ -57,8 +57,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BTransfersJson.cs" />
     <Compile Include="DCsetup.cs" />
     <Compile Include="DUtils.cs" />
+    <Compile Include="InventoryAdjustmentJson.cs" />
+    <Compile Include="InventoryJson.cs" />
     <Compile Include="ItemsJson.cs" />
     <Compile Include="LocationsJson.cs" />
     <Compile Include="Logging.cs" />
@@ -70,6 +73,7 @@
     <Compile Include="ProjectInstaller.Designer.cs">
       <DependentUpon>ProjectInstaller.cs</DependentUpon>
     </Compile>
+    <Compile Include="RTransfersJson.cs" />
     <Compile Include="SalesJson.cs" />
     <Compile Include="SelfInstaller.cs" />
     <Compile Include="Service1.cs">
