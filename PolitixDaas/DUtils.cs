@@ -859,7 +859,7 @@ namespace PolitixDaas
                 anSql = anSql + " and LAG_BESTAND  + ISNULL(LGD_DELTA, 0) <> 0 ";
             } else
             {
-                anSql = anSql + " and LAG_CLOG_DATE >= " + lastUpdate;
+                anSql = anSql + " and (LAG_CLOG_DATE >= " + lastUpdate + " OR LAG_LETZTEREINGANG  >= " + lastUpdate + " OR LAG_LETZTERVERKAUF  >= " + lastUpdate + ") ";
             }
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
