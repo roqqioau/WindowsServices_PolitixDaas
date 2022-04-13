@@ -445,6 +445,11 @@ namespace PolitixDaas
             return "0";
         }
 
+        public void getPOs(SqlConnection ersConnection)
+        {
+
+        }
+
         public void getTransfersFromBranches(SqlConnection ersConnection)
         {
             Logging.WriteLog("Starting getTransfersFromBranches");
@@ -602,7 +607,9 @@ namespace PolitixDaas
                 "   else '' " +
                 " end[LFS_STATUS], LFS_CLOG_USER " +
                 " FROM V_LIEFHEAD " +
-                " where LFS_KTYP = 6 AND LFS_STATUS = 2 and LFS_MANDANT = 1 and LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate;
+                " where " +
+                //" LFS_KTYP = 6 AND LFS_STATUS = 2 and " + 
+                " LFS_MANDANT = 1 AND LFS_KTYP = 2 and LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate;
             Logging.WriteDebug(anSql, dcSetup.Debug);
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -839,7 +846,7 @@ namespace PolitixDaas
             Dictionary<String, StockTransferLine> stockTransitLst = PopulateStockTransit(ersConnection);
 
 
-            String anSql = "select " + top10 + " LAG_REFNUMMER, LAG_FILIALE, " +
+            String anSql = "select  LAG_REFNUMMER, LAG_FILIALE, " +
 
                 " CASE " +
                 "   WHEN LAG_EK_GEW_VALID = 1 THEN LAG_EK_GEWICHTET " +
@@ -989,7 +996,124 @@ namespace PolitixDaas
 
 
         }
-          
+
+        int getKAS_ZEIT(SqlConnection ersConnection, int kasMandant, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr)
+        {
+
+            String ansql = "select KAS_ZEIT from V_KASSE  " +
+                 " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                 " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT ";
+
+            using( SqlCommand cmd = new SqlCommand(ansql, ersConnection) )
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                cmd.Parameters.AddWithValue("@KAS_MANDANT", kasMandant);
+                using(SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if(areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+            ansql = "select KAS_ZEIT from V_KASSTRNS  " +
+                " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT ";
+
+            using (SqlCommand cmd = new SqlCommand(ansql, ersConnection))
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                cmd.Parameters.AddWithValue("@KAS_MANDANT", kasMandant);
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+            ansql = "select KAS_ZEIT from V_KASIDLTA  " +
+                " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR and KAS_MANDANT = @KAS_MANDANT ";
+
+            using (SqlCommand cmd = new SqlCommand(ansql, ersConnection))
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                cmd.Parameters.AddWithValue("@KAS_MANDANT", kasMandant);
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+
+
+            return 0;
+        }
+
+
+        public void salesSecondPass(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("salesSecondPass");
+            String startingDate = dcSetup.MinSendDate.ToString();
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            int dayDiff = 7;
+
+            String anSql = "SELECT " + top10 + " DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4, DAAS_KEY5 " +
+                " FROM " + DaasExportTable  +
+                " where DAAS_SET_NAME = 'SALE' AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)  ) < " + dayDiff +
+                " AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) > " + dayDiff;
+            Logging.WriteDebug("salesSecondPass Sql: ", dcSetup.Debug);
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            using(SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        int kDate = Logging.strToIntDef(areader["DAAS_KEY1"].ToString(), 0);
+                        int kFiliale = Logging.strToIntDef(areader["DAAS_KEY2"].ToString(), 0);
+                        int kasse = Logging.strToIntDef(areader["DAAS_KEY4"].ToString(), 0);
+                        int kbonir = Logging.strToIntDef(areader["DAAS_KEY5"].ToString(), 0);
+                        int kMandant = Logging.strToIntDef(areader["DAAS_KEY3"].ToString(), 0);
+
+                        int kazZeilt = getKAS_ZEIT(ersConnection, kMandant, kDate, kFiliale, kasse, kbonir);
+                        String custNo = getCustNoFromTransaction(ersConnection, kDate, kFiliale, kasse, kbonir, kMandant);
+
+                        processTransaction(ersConnection, kMandant, kDate, kFiliale, kasse, kbonir, kazZeilt, custNo);
+
+                    }
+                }
+            }
+
+
+
+        }
+
+
         public void getSales(SqlConnection ersConnection)
         {
             populateDiscount(ersConnection);
@@ -1023,6 +1147,18 @@ namespace PolitixDaas
             String anInterval = fromDate.ToString("yyyyMMdd");
             String dateFrom = dcSetup.DateFrom.ToString();
             String dateTo = dcSetup.DateTo.ToString();
+
+            if(dcSetup.DateFrom > 0 && dcSetup.DateTo > 0)
+            {
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALE' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom);
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo);
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
 
             String sqlstr = "select distinct " + top10 + " KAS_MANDANT, K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX],  " +
                 " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]  " +
@@ -1098,6 +1234,8 @@ namespace PolitixDaas
                 }
 
             }
+
+            dcSetup.resetSalesDateRange();
 
 
         }
@@ -1471,13 +1609,13 @@ namespace PolitixDaas
                     }
 
                     saleLine.ReturnReason = "";
-
+                    bool isReturn = false;
                     saleLine.SaleLineType = "SALE";
                     if (kasRetour == 1)
                     {
                         saleLine.SaleLineType = "RETURN";
                         arefund = true;
-
+                        isReturn = true;
                         saleLine.Qty = -1 * saleLine.Qty;
 
                         saleLine.LineValueGross = -1 * saleLine.LineValueGross;
@@ -1488,6 +1626,8 @@ namespace PolitixDaas
 
                     }
                     totSales += saleLine.LineValueGross;
+
+                    saleLine.Wac = getWac(saleLine.SkuId, kasFiliale, kasDatum, isReturn, ersConnection);
 
                 }
 
@@ -1520,8 +1660,8 @@ namespace PolitixDaas
             {
                 Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.Debug);
                 SendNewMessageQueue(SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.SalesQueueName);
-                updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), kasMandant.ToString(), kasKasse.ToString(), kasBonnr.ToString(), "SALE", md5Contents, ersConnection);
             }
+            updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), kasMandant.ToString(), kasKasse.ToString(), kasBonnr.ToString(), "SALE", md5Contents, ersConnection);
 
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
@@ -1565,6 +1705,7 @@ namespace PolitixDaas
                 if (!dcSetup.BlockSales)
                 {
                     getSales(ersConnection);
+                    salesSecondPass(ersConnection);
                 }
 
                 if (!dcSetup.BlockProducts)
@@ -1914,12 +2055,13 @@ namespace PolitixDaas
                 sTop = " top " + dcSetup.ResultSet.ToString();
             }
 
-            String anSql = "  select distinct PDT_DATUM, PDT_NUMMER, PDT_WARENGR, PDT_ABTEILUNG, PDT_TYPE, PDT_GRPNUMMER, PDT_REFNUMMER, PAE_TEXT from PR_AEND " +
-                " join PR_ZEIL on PAE_MANDANT = PDT_MANDANT AND PAE_DATUM = PDT_DATUM AND PAE_NUMMER = PDT_NUMMER " + 
-                " join PR_LIN on PLN_MANDANT = PAE_MANDANT  AND PAE_DATUM = PLN_DATUM AND PLN_NUMMER = PDT_NUMMER and PLN_PREISLINIE = -2  and PLN_NEUVKPREIS> 0.001 " +
+            String anSql = "  select distinct PDT_DATUM, PDT_NUMMER, PDT_WARENGR, PDT_ABTEILUNG, PDT_TYPE, PDT_GRPNUMMER, PDT_REFNUMMER, PAE_TEXT, PDT_NEUVKP_DATUM from PR_AEND " +
+                " join PR_ZEIL on PAE_MANDANT = PDT_MANDANT AND PAE_DATUM = PDT_DATUM AND PAE_NUMMER = PDT_NUMMER " +
+                " join PR_LIN on PLN_MANDANT = PAE_MANDANT  AND PAE_DATUM = PLN_DATUM AND PLN_NUMMER = PDT_NUMMER and PLN_PREISLINIE IN (-2, 11)  and PLN_NEUVKPREIS> 0.001 " +
                 " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 and PAE_DATUM >= " + sqlLastUpdate + " and PAE_DATUM >= " + mdownInitialDate + "    order by 1, 2 ";
 
             Dictionary<string, Markdown> prAends = new Dictionary<string, Markdown>();
+            Dictionary<string, Markdown> prAendsEff = new Dictionary<string, Markdown>();
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
 
@@ -1938,20 +2080,29 @@ namespace PolitixDaas
                         int pdtType = Logging.strToIntDef(areader["PDT_TYPE"].ToString(), 0);
                         int pdtGroupNo = Logging.strToIntDef(areader["PDT_GRPNUMMER"].ToString(), 0);
                         int pdtRefNo = Logging.strToIntDef(areader["PDT_REFNUMMER"].ToString(), 0);
+                        int pdtEffectiveDate = Logging.strToIntDef(areader["PDT_NEUVKP_DATUM"].ToString(), 0);
                         String paeText = areader.GetString(7);
 
                         String aKey = pdtDatum.ToString() + "~" + pdtRefNo;
-                        if(pdtRefNo == 0)
+                        String aKeyEff = pdtEffectiveDate.ToString() + "~" + pdtRefNo;
+                        if (pdtRefNo == 0)
                         {
                             aKey = pdtDatum.ToString() + "~" + pdtWareng + "~" + pdtAbte + "~" + pdtType + "~" + pdtGroupNo;
+                            aKeyEff = pdtEffectiveDate.ToString() + "~" + pdtWareng + "~" + pdtAbte + "~" + pdtType + "~" + pdtGroupNo;
                         }
 
                         markdown.PdtDatum = pdtDatum;
                         markdown.PdtNummer = pdtNummer;
                         markdown.PdtText = paeText;
+                        markdown.PdtEffectiveDate = pdtEffectiveDate;
                         if (!prAends.ContainsKey(aKey)) 
                         {
                             prAends.Add(aKey, markdown);
+                        }
+
+                        if(!prAendsEff.ContainsKey(aKeyEff))
+                        {
+                            prAendsEff.Add(aKeyEff, markdown);
                         }
 
 
@@ -1960,7 +2111,9 @@ namespace PolitixDaas
                 }
             }
 
+            DateTime anow = DateTime.Now;
 
+            String snow = anow.ToString("yyyyMMdd");
 
             String lastUpdateShort = lastUpdate.Substring(0, 8);
 
@@ -1969,6 +2122,7 @@ namespace PolitixDaas
                 " JOIN FILIALEN on SAD_MANDANT = FIL_MANDANT and SAD_FILIALE = FIL_NUMMER " +
                 " where SAD_MANDANT = 1 and SAD_KENNUNG = 1 and SAD_DATUM >= " + lastUpdateShort + " and SAD_DATUM >= " +
                 Logging.FuturaDateTimeAddMins(mdownInitialDate + "060606", -48 * 60).Substring(0, 8) +
+                " and SAD_DATUM <= " + snow + 
                 " and FIL_ARTTRANS_VK in (0, -2) " +
                 " order by SAD_DATUM, SAI_REFNUMMER, SAD_FILIALE";
 
@@ -1997,10 +2151,15 @@ namespace PolitixDaas
                     String keyDatum = Logging.FuturaDateTimeAddMins(sadDatum + "060606", -24 * 60).Substring(0, 8);
 
                     String akey = keyDatum + "~" + sku;
-                    if(akey.Equals("0"))
+                    String akeyEff = sadDatum + "~" + sku;
+                    if (sku.Equals("0"))
                     {
                         akey = keyDatum + "~" + satWarenger + "~" + satAbteilung + "~" + satType + "~" + satGroupNo;
+                        akeyEff = sadDatum + "~" + satWarenger + "~" + satAbteilung + "~" + satType + "~" + satGroupNo;
                     }
+
+                    
+                    
 
                     MarkdownJson ajson = new MarkdownJson();
                     ajson.PermanentMD  = new PermanentMarkdown();
@@ -2009,15 +2168,28 @@ namespace PolitixDaas
                     ajson.PermanentMD.ID = sadDatum + "/0";
                     ajson.PermanentMD.Description = "manual markdown";
                     ajson.PermanentMD.SadId = areader["SAD_ID"].ToString();
+                    ajson.PermanentMD.EffectiveDate = sadDatum;
                     Markdown amarkdown = null;
-                    if (prAends.ContainsKey(akey))
+                   // if (prAends.ContainsKey(akey))
+                   // {
+                   //     amarkdown = prAends[akey];
+                   // }
+                   // if(amarkdown != null)
+                   // {
+                   //     ajson.PermanentMD.Description = amarkdown.PdtText;
+                   //     ajson.PermanentMD.ID = amarkdown.PdtDatum.ToString() + "/" + amarkdown.PdtNummer;
+                   //     ajson.PermanentMD.EffectiveDate = amarkdown.PdtEffectiveDate.ToString();
+                   // }
+
+                    if(prAendsEff.ContainsKey(akeyEff))
                     {
-                        amarkdown = prAends[akey];
+                        amarkdown = prAendsEff[akeyEff];
                     }
-                    if(amarkdown != null)
+                    if (amarkdown != null)
                     {
                         ajson.PermanentMD.Description = amarkdown.PdtText;
                         ajson.PermanentMD.ID = amarkdown.PdtDatum.ToString() + "/" + amarkdown.PdtNummer;
+                        ajson.PermanentMD.EffectiveDate = amarkdown.PdtEffectiveDate.ToString();
                     }
 
                     ajson.PermanentMD.SubGroup = satAbteilung;
@@ -2047,9 +2219,9 @@ namespace PolitixDaas
                 }
             }
 
-            DateTime anow = DateTime.Now;
-            String snow = anow.ToString("yyyyMMddhhmmss");
-            dcSetup.PermanentMarkdownUpdate = snow;
+            DateTime aanow = DateTime.Now;
+            String ssnow = aanow.ToString("yyyyMMddhhmmss");
+            dcSetup.PermanentMarkdownUpdate = ssnow;
 
 
 
@@ -2833,6 +3005,96 @@ namespace PolitixDaas
             }
 
         }
+
+        private double getWac(int refNo, int branchNo, int kasDate, bool isReturn, SqlConnection aconnection)
+        {
+            if(refNo == 0)
+            {
+                return 0;
+            }
+            double lager_wac = 0;
+            bool lagerValid = false;
+
+            double wac = 0;
+
+            String lagerSql = "select LAG_EK_GEW_VALID, LAG_EK_GEWICHTET from V_LAGER WHERE LAG_MANDANT = 1 AND LAG_REFNUMMER = " + refNo + " AND  LAG_FILIALE = " + branchNo; 
+            using (SqlCommand cmd = new SqlCommand(lagerSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        int gemvalis = Logging.strToIntDef(areader["LAG_EK_GEW_VALID"].ToString(), 0);
+                        lagerValid = gemvalis != 0;
+                        if(lagerValid)
+                        {
+                            lager_wac = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
+                        }
+                    }
+                }
+            }
+
+            double artWac = 0;
+            bool artValid = false;
+            String artSql = "select  ART_EK_GEW_VALID, ART_EK_GEWICHTET from V_ARTIKEL WHERE ART_REFNUMMER = " + refNo;
+            using (SqlCommand cmd = new SqlCommand(artSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        int arty = Logging.strToIntDef(areader["ART_EK_GEW_VALID"].ToString(), 0);
+                        artValid = arty != 0;
+                        if (artValid)
+                        {
+                            artWac = Logging.strToDoubleDef(areader["ART_EK_GEWICHTET"].ToString(), 0);
+                        }
+                    }
+                }
+            }
+
+            int kennumb = 6;
+            if(isReturn)
+            {
+                kennumb = 7;
+            }
+
+            double statWac = 0;
+            bool statValid = false;
+            String statSql = "select SAD_DATUM, SAD_EKWERT / SAD_ZAHL [WAC],  SAD_KENNUNG from STATADTA " +
+                " JOIN STATAIDX ON SAD_MANDANT = SAI_MANDANT AND SAD_ID = SAI_ID " +
+                " WHERE SAD_DATUM > " + kasDate + "  AND SAD_KENNUNG = " + kennumb + " AND SAI_REFNUMMER = " + refNo + " and SAD_ZAHL > 1 AND SAD_FILIALE = " + branchNo + " AND SAD_ZAHL<> 0 " +
+                " order by 1 ";
+
+            using (SqlCommand cmd = new SqlCommand(statSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        statWac = Logging.strToDoubleDef(areader["WAC"].ToString(), 0);
+                        statValid = true;
+                    }
+                }
+            }
+
+            if(statValid)
+            {
+                return statWac;
+            }
+
+            if(lagerValid)
+            {
+                return lager_wac;
+            }
+
+            if (artValid)
+            {
+                return artWac;
+            }
+            return 0;
+        }
+
 
         private void houseKeeping(String apath, String afilter)
         {

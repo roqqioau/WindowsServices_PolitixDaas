@@ -52,6 +52,7 @@ namespace PolitixDaas
         public String VoucherPaymentTypeId { get; set; }
         public String VoucherPaymentType { get; set; }
         public String SaleLineType { get; set; }
+        public double Wac { get; set; }
 
 
     }

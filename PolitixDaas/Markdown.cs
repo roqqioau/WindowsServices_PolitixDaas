@@ -9,6 +9,7 @@ namespace PolitixDaas
     public class Markdown
     {
         public int PdtDatum { get; set; }
+        public int PdtEffectiveDate { get; set; }
         public int PdtNummer { get; set; }
         public String PdtText { get; set; }
     }
@@ -31,6 +32,7 @@ namespace PolitixDaas
         public String SadId { get; set; }
         public double Qty { get; set; }
         public double Value { get; set; }
+        public String EffectiveDate { get; set; }
 
     }
 

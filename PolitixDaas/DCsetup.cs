@@ -13,6 +13,7 @@ namespace PolitixDaas
         public int IntervalMins;
 
         public String ActiveMQUrl { get; private set; }
+        public String OrdersQueueName { get; set; }
         public String LocationsQueueName { get; private set; }
         public String PricesQueueName { get; private set; }
         public String ProductsQueueName { get; private set; }
@@ -43,6 +44,8 @@ namespace PolitixDaas
         public int InventoryAdjustmentsInitialDate { get; set; }
         public int TransfersFromHOInitialDate { get; set; }
         public int TransfersFromBranchesInitialDate { get; set; }
+        public int OrdersInitialDate { get; set; }
+
 
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
@@ -59,7 +62,7 @@ namespace PolitixDaas
         public bool BlockInventoryAdjustments { get; set; }
         public bool BlockTransfersFromHO { get; set; }
         public bool BlockTransfersFromBranches { get; set; }
-
+        public bool BlockOrders { get; set; }
         public bool DevMode { get; set; }
 
 
@@ -252,7 +255,27 @@ namespace PolitixDaas
             anIni.writeString("System", "InventoryUpdate", value);
         }
 
+        public String OrdersUpdate
+        {
+            get => getOrdersUpdate();
+            set => setOrdersUpdate(value);
+        }
 
+        private String getOrdersUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "OrdersUpdate", "");
+
+        }
+
+        private void setOrdersUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "OrdersUpdate", value);
+
+        }
 
 
         public DCsetup()
@@ -321,6 +344,10 @@ namespace PolitixDaas
             String sBlockTransfersFromBranches = anIni.readString("SYSTEM", "BlockTransfersFromBranches", "");
             BlockTransfersFromBranches = sBlockTransfersFromBranches.Equals("1") || sBlockTransfersFromBranches.ToUpper().Equals("Y");
 
+            //BlockOrders
+            String sBlockOrders = anIni.readString("SYSTEM", "BlockOrders", "");
+            BlockOrders = sBlockOrders.Equals("1") || sBlockOrders.ToUpper().Equals("Y");
+
             String sDevMode = anIni.readString("SYSTEM", "DevMode", "");
             DevMode = sDevMode.Equals("1") || sDevMode.ToUpper().Equals("Y");
 
@@ -340,9 +367,12 @@ namespace PolitixDaas
 
             TransfersFromBranchesInitialDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesInitialDate", 20210301);
 
+            OrdersInitialDate = anIni.readInteger("SYSTEM", "OrdersInitialDate", 20210301);
+
 
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
             LocationsQueueName = anIni.readString("Queues", "Locations", "");
+            OrdersQueueName = anIni.readString("Queues", "Orders", "");
             ProductsQueueName = anIni.readString("Queues", "Products", "");
             PricesQueueName = anIni.readString("Queues", "Prices", "");
             SalesQueueName = anIni.readString("Queues", "Sales", "");
@@ -356,6 +386,15 @@ namespace PolitixDaas
             DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
 
             LookupIntervalDays = anIni.readInteger("SYSTEM", "LookupIntervalDays", 7);
+        }
+
+        public void resetSalesDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "SalesDateFrom", "0");
+            anIni.writeString("System", "SalesDateTo", "0");
+
         }
 
 
