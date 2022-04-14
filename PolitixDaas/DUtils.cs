@@ -448,6 +448,128 @@ namespace PolitixDaas
         public void getPOs(SqlConnection ersConnection)
         {
 
+            Logging.WriteLog("Starting getPOs");
+
+            String lastUpdate = dcSetup.OrdersUpdate;
+
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'ORDER' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.OrdersInitialDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+
+
+            String anSql = "select  BST_ORIGNR, BST_BESTELLUNG, BST_STATUS, BST_BESTELLDATUM [ORDER_DATE],  BST_LIEFER_AB [DELIVERY_DATE_FROM], BST_LIEFER_BIS [DELIVEY_DATE_TO], " +
+                " BST_EINGANGDATUM[ARRIVAL_DATE], BST_LIEFERANT[SUPPLIER], BST_TOT_WARE_EK[TOTAL_PURCHASE_VALUE], BST_TOT_WARE_VK[TOTAL_SALE_VALUE], BST_TOT_ANZAHL[TOTAL_QTY], " +
+                " RTRIM(BST_TEXT_1 + ' ' + BST_TEXT_2)[OTEXT],  " +
+                " CASE " +
+                "   WHEN BST_STATUS = 0 THEN 'PLANNED' " +
+                "   WHEN BST_STATUS = 1 THEN 'ORDERED' " +
+                "   WHEN BST_STATUS = 2 THEN 'DELIVERED' " +
+                "   WHEN BST_STATUS = 3 THEN 'BILLED' " +
+                "   WHEN BST_STATUS = 4 THEN 'CANCELLED' " +
+                "   ELSE '' " +
+                " END[STATUS] " +
+                " from V_BESTHEAD WHERE BST_MANDANT = 1 AND BST_ULOG_DATE >= " + iLastUpdate + " AND BST_ULOG_DATE >= " + initialdate ;
+
+            String detsql = "SELECT BDT_ORIGNR, BDT_BESTELLUNG, BDT_REFNUMMER, BDT_TEXT, BDT_BESTELL_MENGE[ORDER_QTY], BDT_ANZ_LIEFERUNG[DELIVERI_QTY], BDT_RECHNUNG_MENGE[INVOICED_QTY], " +
+                " BDT_EK_CALC[PURCHASE_PRICE_TOTAL], BDT_VK_CALC[SALES_PRICE_TOTAL], BDT_VK_SOLL, BDT_EKP_BESTELLT[PURCHASE_PRICE], BDT_POSITION, " +
+                " case  " +
+                "   when ART_SET_EKGEW_MODE <> 0 then ART_EK_GEWICHTET " +
+                "   else ART_EK_DM " +
+                " end[WAC] " +
+
+                " FROM V_BESTZEIL " +
+                " JOIN V_ARTIKEL ON ART_MANDANT = 1 AND ART_REFNUMMER = BDT_REFNUMMER " + 
+                " WHERE BDT_BESTELLUNG = @BDT_BESTELLUNG AND BDT_ORIGNR = @BDT_ORIGNR and BDT_MANDANT = 1 ";
+
+            using(SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using(SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        POJson apo = new POJson();
+                        apo.Order = new POOrder();
+                        apo.Order.OrderId = areader["BST_ORIGNR"].ToString() + "-" + areader["BST_BESTELLUNG"].ToString();
+                        apo.Order.ArrivalDate = Logging.strToIntDef(areader["ARRIVAL_DATE"].ToString(), 0);
+                        apo.Order.OrderDate = Logging.strToIntDef(areader["ORDER_DATE"].ToString(), 0);
+                        apo.Order.POLines = new List<PODetails>();
+                        apo.Order.Supplier = areader["SUPPLIER"].ToString();
+                        apo.Order.Text = areader["OTEXT"].ToString();
+                        apo.Order.TotalOrderQty = Logging.strToDoubleDef(areader["TOTAL_QTY"].ToString(), 0);
+                        apo.Order.TotalPurchaseValue = Logging.strToDoubleDef(areader["TOTAL_PURCHASE_VALUE"].ToString(), 0);
+                        apo.Order.TotalRetailValue = Logging.strToDoubleDef(areader["TOTAL_SALE_VALUE"].ToString(), 0);
+
+                        using(SqlCommand cmdDet = new SqlCommand(detsql, ersConnection))
+                        {
+                            cmdDet.Parameters.AddWithValue("@BDT_BESTELLUNG", areader["BST_BESTELLUNG"].ToString());
+                            cmdDet.Parameters.AddWithValue("@BDT_ORIGNR", areader["BST_ORIGNR"].ToString());
+                            using (SqlDataReader detReader = cmdDet.ExecuteReader())
+                            {
+                                while (detReader.Read())
+                                {
+                                    PODetails adetail = new PODetails();
+                                    apo.Order.POLines.Add(adetail);
+                                    adetail.OrderId = areader["BST_ORIGNR"].ToString() + "-" + areader["BST_BESTELLUNG"].ToString();
+                                    adetail.DeliveredQty = Logging.strToDoubleDef(detReader["DELIVERI_QTY"].ToString(), 0);
+                                    adetail.Description = detReader["BDT_TEXT"].ToString();
+                                    adetail.OrderQty = Logging.strToDoubleDef(detReader["ORDER_QTY"].ToString(), 0);
+                                    adetail.Line = Logging.strToIntDef(detReader["BDT_POSITION"].ToString(), 1);
+                                    adetail.PurchaseValue = Logging.strToDoubleDef(detReader["PURCHASE_PRICE_TOTAL"].ToString(), 0);
+                                    adetail.RetailValue = Logging.strToDoubleDef(detReader["SALES_PRICE_TOTAL"].ToString(), 0);
+                                    adetail.SkuId = Logging.strToIntDef(detReader["BDT_REFNUMMER"].ToString(), 1);
+                                    adetail.WAC = Logging.strToDoubleDef(detReader["WAC"].ToString(), 0);
+                                }
+
+                            }
+
+
+
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(apo).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(areader["BST_ORIGNR"].ToString(), areader["BST_BESTELLUNG"].ToString(),
+                            "1", "1", "1", "ORDER", Logging.strToInt64Def(dcSetup.OrdersUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5) )
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(apo).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(apo).ToString(), dcSetup.OrdersQueueName);
+                            updateDaasExport(areader["BST_ORIGNR"].ToString(), areader["BST_BESTELLUNG"].ToString(), "1", "1", "1", "ORDER", md5Contents, ersConnection);
+                        }
+
+
+
+                    }
+                }
+            }
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.OrdersUpdate = snow;
+
         }
 
         public void getTransfersFromBranches(SqlConnection ersConnection)
@@ -723,10 +845,12 @@ namespace PolitixDaas
 
             String anSql = "select " + top10 + " LKO_REFNUMMER, LKO_FILIALE, LKO_DATUM, LKO_UNIQUE, LKO_GRUND, LKO_TEXT, LKO_MENGE, LKO_ULOG_USER, ART_VKPREIS[RT_Price],   " +
                 " case  " +
-                "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
+                "   when ART_SET_EKGEW_MODE <> 0 then ART_EK_GEWICHTET " +
                 "   else ART_EK_DM " +
                 " end[WeightedAverageCost] " +
+                " , ISNULL(ILG_TEXT, '') [REASON] " + 
                 " from V_LAGERKOR " +
+                " LEFT JOIN V_INVLKGRD ON ILG_MANDANT = 1 AND ILG_GRUND = LKO_GRUND " + 
                 " JOIN V_ARTIKEL ON ART_MANDANT = 1 AND ART_REFNUMMER = LKO_REFNUMMER " +
                 " WHERE LKO_MANDANT = 1 AND LKO_DATUM >= " + initialdate + " AND LKO_DATUM >= " + iLastUpdate;
 
@@ -745,7 +869,7 @@ namespace PolitixDaas
                         ajsonObj.InventoryAdjustmentLine.AdjustmentNumber = areader["LKO_REFNUMMER"].ToString() + "-" + areader["LKO_FILIALE"].ToString() + "-" + areader["LKO_DATUM"].ToString() +
                             "-" + areader["LKO_UNIQUE"].ToString();
                         ajsonObj.InventoryAdjustmentLine.AdjustmentQty = Logging.strToDoubleDef(areader["LKO_MENGE"].ToString(), 0);
-                        ajsonObj.InventoryAdjustmentLine.AdjustmentReason = areader["LKO_TEXT"].ToString();
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentReason = areader["REASON"].ToString();
                         ajsonObj.InventoryAdjustmentLine.AdjustmentReasonId = Convert.ToInt32(areader["LKO_GRUND"].ToString());
                         ajsonObj.InventoryAdjustmentLine.BranchNo = Convert.ToInt32(areader["LKO_FILIALE"].ToString());
                         ajsonObj.InventoryAdjustmentLine.EmployeeId = Convert.ToInt32(areader["LKO_ULOG_USER"].ToString());
@@ -1741,6 +1865,11 @@ namespace PolitixDaas
                 if(!dcSetup.BlockTransfersFromBranches)
                 {
                     getTransfersFromBranches(ersConnection);
+                }
+
+                if(!dcSetup.BlockOrders)
+                {
+                    getPOs(ersConnection);
                 }
 
                 ACounter++;

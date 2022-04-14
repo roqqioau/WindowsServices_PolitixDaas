@@ -67,6 +67,7 @@
     <Compile Include="Logging.cs" />
     <Compile Include="Markdown.cs" />
     <Compile Include="PermanentMarkdownsJson.cs" />
+    <Compile Include="POJson.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>
     </Compile>
