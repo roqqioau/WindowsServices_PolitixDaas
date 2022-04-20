@@ -13,6 +13,7 @@ namespace PolitixDaas
         public int IntervalMins;
 
         public String ActiveMQUrl { get; private set; }
+        public String ShipmentsQueueName { get; set; }
         public String OrdersQueueName { get; set; }
         public String LocationsQueueName { get; private set; }
         public String PricesQueueName { get; private set; }
@@ -45,14 +46,16 @@ namespace PolitixDaas
         public int TransfersFromHOInitialDate { get; set; }
         public int TransfersFromBranchesInitialDate { get; set; }
         public int OrdersInitialDate { get; set; }
-
+        public int ShipmentsInitialDate { get; set; }
+        public int ShipmentFromDate { get; set; }
+        public int ShipmentToDate { get; set; }
 
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
         public int DateFrom { get; set; }
         public int DateTo { get; set; }
         public int LookupIntervalDays { get; set; }
-
+        public bool BlockShipments { get; set; }
         public bool BlockLocations { get; set; }
         public bool BlockProducts { get; set; }
         public bool BlockPrices { get; set; }
@@ -65,6 +68,26 @@ namespace PolitixDaas
         public bool BlockOrders { get; set; }
         public bool DevMode { get; set; }
 
+        public String ShipmentsUpdate
+        {
+            get => getShipmentsUpdate();
+            set => setShipmentsUpdate(value);
+        }
+
+        private String getShipmentsUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "ShipmentsUpdate", "");
+
+        }
+
+        private void setShipmentsUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "ShipmentsUpdate", value);
+        }
 
         public String InventoryAdjustmentsUpdate
         {
@@ -348,6 +371,10 @@ namespace PolitixDaas
             String sBlockOrders = anIni.readString("SYSTEM", "BlockOrders", "");
             BlockOrders = sBlockOrders.Equals("1") || sBlockOrders.ToUpper().Equals("Y");
 
+            String sBlockShipments = anIni.readString("SYSTEM", "BlockShipments", "");
+            BlockShipments = sBlockShipments.Equals("1") || sBlockShipments.ToUpper().Equals("Y");
+
+
             String sDevMode = anIni.readString("SYSTEM", "DevMode", "");
             DevMode = sDevMode.Equals("1") || sDevMode.ToUpper().Equals("Y");
 
@@ -368,6 +395,7 @@ namespace PolitixDaas
             TransfersFromBranchesInitialDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesInitialDate", 20210301);
 
             OrdersInitialDate = anIni.readInteger("SYSTEM", "OrdersInitialDate", 20210301);
+            ShipmentsInitialDate = anIni.readInteger("SYSTEM", "ShipmentsInitialDate", 20210301);
 
 
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
@@ -381,9 +409,12 @@ namespace PolitixDaas
             InventoryAdjustmentsQueueName = anIni.readString("Queues", "InventoryAdjustments", "");
             TransfersFromHOQueueName = anIni.readString("Queues", "TransfersFromHO", "");
             TransfersFromBQueueName = anIni.readString("Queues", "TransfersFromBranch", "");
-
+            ShipmentsQueueName = anIni.readString("Queues", "Shipments", "");
             DateFrom = anIni.readInteger("SYSTEM", "SalesDateFrom", 0);
             DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
+
+            ShipmentFromDate = anIni.readInteger("SYSTEM", "ShipmentsFromDate", 0);
+            ShipmentToDate = anIni.readInteger("SYSTEM", "ShipmentsToDate", 0);
 
             LookupIntervalDays = anIni.readInteger("SYSTEM", "LookupIntervalDays", 7);
         }
@@ -397,6 +428,13 @@ namespace PolitixDaas
 
         }
 
+        public void resetShipmentsDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "ShipmentsFromDate", "0");
+            anIni.writeString("System", "ShipmentsToDate", "0");
+        }
 
 
     }

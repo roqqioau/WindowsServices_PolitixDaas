@@ -445,6 +445,122 @@ namespace PolitixDaas
             return "0";
         }
 
+        public void getShipments(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getShipments");
+
+            String lastUpdate = dcSetup.ShipmentsUpdate;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SHIPMENT' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            String dateFrom = dcSetup.ShipmentFromDate.ToString();
+            String dateTo = dcSetup.ShipmentToDate.ToString();
+
+            if (dcSetup.ShipmentFromDate > 0 && dcSetup.ShipmentToDate > 0)
+            {
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SHIPMENT' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dcSetup.ShipmentFromDate);
+                    cmd.Parameters.AddWithValue("@maxDate", dcSetup.ShipmentToDate);
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.ShipmentsInitialDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String headSql = "select " + top10 + " WEH_ORIG, WEH_EINGANG, WEH_DATUM, WEH_TEXT from WE_HEADR " +
+                " where ((WEH_DATUM >=  " + initialdate + " and WEH_DATUM >= " + iLastUpdate + ") or (WEH_DATUM >= " + dcSetup.ShipmentFromDate + " and WEH_DATUM <= " + dcSetup.ShipmentToDate + ")) " +
+                " and WEH_MANDANT = 1 " + 
+                " order by WEH_DATUM ";
+
+            using (SqlCommand cmd = new SqlCommand(headSql, ersConnection))
+            {
+                String detSql = "SELECT WEZ_ZEILE, WEZ_REFNUMMER, WEZ_BESTELLNUMMER [ORDER_NUMNER], WEZ_BESTELLZEILE[ORDER_POSITION], WEZ_ANZBESTELLT [ORDERED_QTY], " +
+                    " WEZ_ANZGELIEFERT[DELIVERY_NOTE_QTY], WEZ_ANZBERECHNET[INVOICED_QTY],  WEZ_EKWPREIS[PP_PRICE], WEZ_ANZGEZAEHLT[QTY_DELIVERED] FROM WE_ZEILE " +
+                    " WHERE WEZ_MANDANT = 1 AND WEZ_ORIG = @WEZ_ORIG AND WEZ_EINGANG = @WEZ_EINGANG ";
+
+                using(SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while(areader.Read())
+                    {
+                        ShipmentJson shipmentJson = new ShipmentJson();
+                        shipmentJson.Shipment = new GoodsIn();
+                        shipmentJson.Shipment.Id = areader["WEH_ORIG"].ToString() + "-" + areader["WEH_EINGANG"].ToString();
+                        shipmentJson.Shipment.Lines = new List<GoodsInLine>();
+                        shipmentJson.Shipment.ShipmentDate = Logging.strToIntDef(areader["WEH_DATUM"].ToString(), 0);
+                        shipmentJson.Shipment.Text = areader["WEH_TEXT"].ToString();
+
+                        using(SqlCommand cmdDet = new SqlCommand(detSql, ersConnection))
+                        {
+                            cmdDet.Parameters.AddWithValue("@WEZ_ORIG", Logging.strToIntDef(areader["WEH_ORIG"].ToString(), 0));
+                            cmdDet.Parameters.AddWithValue("@WEZ_EINGANG", Logging.strToIntDef(areader["WEH_EINGANG"].ToString(), 0));
+                            using(SqlDataReader detReader = cmdDet.ExecuteReader())
+                            {
+                                while (detReader.Read())
+                                {
+                                    GoodsInLine anItem = new GoodsInLine();
+                                    shipmentJson.Shipment.Lines.Add(anItem);
+                                    anItem.LineNo = Logging.strToIntDef(detReader["WEZ_ZEILE"].ToString(), 0);
+                                    anItem.DeliveryNoteQty = Logging.strToDoubleDef(detReader["DELIVERY_NOTE_QTY"].ToString(), 0);
+                                    anItem.OrderNo = Convert.ToInt32(detReader["ORDER_NUMNER"]);
+                                    anItem.OrderPosition = Logging.strToIntDef(detReader["ORDER_POSITION"].ToString(), 0);
+                                    anItem.PP_Price = Logging.strToDoubleDef(detReader["PP_PRICE"].ToString(), 0);
+                                    anItem.QtyDelivered = Logging.strToDoubleDef(detReader["QTY_DELIVERED"].ToString(), 0);
+                                    anItem.QtyInvoiced = Logging.strToDoubleDef(detReader["INVOICED_QTY"].ToString(), 0);
+                                    anItem.QtyOrderd = Logging.strToDoubleDef(detReader["ORDERED_QTY"].ToString(), 0);
+                                    anItem.SkuId = Logging.strToIntDef(detReader["WEZ_REFNUMMER"].ToString(), 0);
+
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(shipmentJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
+                            "1", "1", "1", "SHIPMENT", Logging.strToInt64Def(dcSetup.OrdersUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.OrdersQueueName);
+                            updateDaasExport(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "1", "SHIPMENT", md5Contents, ersConnection);
+                        }
+
+
+                    }
+                }
+
+            }
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.ShipmentsUpdate = snow;
+
+
+
+        }
+
         public void getPOs(SqlConnection ersConnection)
         {
 
@@ -476,7 +592,7 @@ namespace PolitixDaas
 
 
 
-            String anSql = "select  BST_ORIGNR, BST_BESTELLUNG, BST_STATUS, BST_BESTELLDATUM [ORDER_DATE],  BST_LIEFER_AB [DELIVERY_DATE_FROM], BST_LIEFER_BIS [DELIVEY_DATE_TO], " +
+            String anSql = "select " + top10 + "  BST_ORIGNR, BST_BESTELLUNG, BST_STATUS, BST_BESTELLDATUM [ORDER_DATE],  BST_LIEFER_AB [DELIVERY_DATE_FROM], BST_LIEFER_BIS [DELIVEY_DATE_TO], " +
                 " BST_EINGANGDATUM[ARRIVAL_DATE], BST_LIEFERANT[SUPPLIER], BST_TOT_WARE_EK[TOTAL_PURCHASE_VALUE], BST_TOT_WARE_VK[TOTAL_SALE_VALUE], BST_TOT_ANZAHL[TOTAL_QTY], " +
                 " RTRIM(BST_TEXT_1 + ' ' + BST_TEXT_2)[OTEXT],  " +
                 " CASE " +
@@ -1870,6 +1986,11 @@ namespace PolitixDaas
                 if(!dcSetup.BlockOrders)
                 {
                     getPOs(ersConnection);
+                }
+
+                if(!dcSetup.BlockShipments)
+                {
+                    getShipments(ersConnection);
                 }
 
                 ACounter++;
