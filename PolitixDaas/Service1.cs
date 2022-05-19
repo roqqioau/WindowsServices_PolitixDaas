@@ -34,8 +34,13 @@ namespace PolitixDaas
                 this.timer.Interval = dUtils.dcSetup.IntervalMins * 60 * 1000;
                 i++;
                 timer.Elapsed += new System.Timers.ElapsedEventHandler(timer_tick);
-                timer.Enabled = true;
+                if(args != null)
+                    timer.Enabled = true;
                 Logging.WriteLog("Roqqio Daas Service started.");
+                if(args == null)
+                {
+                    timer = null;
+                }
 
             }
             catch (Exception e)
@@ -47,7 +52,7 @@ namespace PolitixDaas
 
         private void timer_tick(Object sender, ElapsedEventArgs e)
         {
-           // if (sender != null)
+            if (timer != null)
                 timer.Enabled = false;
             Logging.lstErrors.Clear();
             Logging.WriteLog("Timer task starts!");
@@ -64,13 +69,13 @@ namespace PolitixDaas
             try
             {
                 dUtils.sendEmail(Logging.getErrors());
-                if (sender != null)
+                if (timer != null)
                     timer.Enabled = true;
             }
             catch (Exception em)
             {
                 Logging.WriteErrorLog(em.Message);
-                if (sender != null)
+                if (timer != null)
                     timer.Enabled = true;
             }
         }

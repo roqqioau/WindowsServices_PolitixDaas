@@ -21,10 +21,13 @@ namespace PolitixDaas
         public int DespatchDate { get; set; }
 
         public String DeliveryNoteNumber { get; set; }
+        public String DeliveryNote { get; set; }
 
         public String Type { get; set; }
         public int RequestUser { get; set; }
         public List<TransferBDetails> Details { get; set; }
+        public String Text { get; set; }
+        public String DNDate { get; set; }
 
     }
 

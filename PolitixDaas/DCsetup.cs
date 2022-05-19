@@ -36,37 +36,99 @@ namespace PolitixDaas
         public String SqlServer { get; private set; }
         public String SqlDatabase { get; private set; }
         public String SqlErsDatabase { get; private set; }
+        public String SqlErsNZDatabase { get; set; }
         public String SqlUser { get; private set; }
         public String SqlPassword { get; private set; }
         public bool SqlOsAuthentication { get; private set; }
         public int Debug { get; private set; }
         public int MinSendDate { get; private set; }
+        public int MinSendDateNZ { get; private set; }
         public int PermanentMarkDownsInitialDate { get; private set; }
+        public int PermanentMarkDownsNZInitialDate { get; private set; }
         public int InventoryAdjustmentsInitialDate { get; set; }
+        public int InventoryAdjustmentsNZInitialDate { get; set; }
         public int TransfersFromHOInitialDate { get; set; }
+        public int TransfersFromHONZInitialDate { get; set; }
         public int TransfersFromBranchesInitialDate { get; set; }
+        public int TransfersFromBranchesNZInitialDate { get; set; }
         public int OrdersInitialDate { get; set; }
         public int ShipmentsInitialDate { get; set; }
+        public int ShipmentsNZInitialDate { get; set; }
         public int ShipmentFromDate { get; set; }
         public int ShipmentToDate { get; set; }
+        public int ShipmentNZFromDate { get; set; }
+        public int ShipmentNZToDate { get; set; }
+        public int MarkdownsFromDate { get; set; }
+        public int MarkdownsToDate { get; set; }
+        public int MarkdownsNZFromDate { get; set; }
+        public int MarkdownsNZToDate { get; set; }
+        public int OrdersFromDate { get; set; }
+        public int OrdersToDate { get; set; }
+
+        public int TransfersFromHOFromDate { get; set; }
+        public int TransfersFromHOToDate { get; set; }
+        public int TransfersFromHONZFromDate { get; set; }
+        public int TransfersFromHONZToDate { get; set; }
+        public int TransfersFromBranchesFromDate { get; set; }
+        public int TransfersFromBranchesToDate { get; set; }
+        public int TransfersFromBranchesNZFromDate { get; set; }
+        public int TransfersFromBranchesNZToDate { get; set; }
+
+        public int InventoryAdjustmentFromDate { get; set; }
+        public int InventoryAdjustmentToDate { get; set; }
+
+        public int InventoryAdjustmentNZFromDate { get; set; }
+        public int InventoryAdjustmentNZToDate { get; set; }
 
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
         public int DateFrom { get; set; }
         public int DateTo { get; set; }
+        public int DateFromNZ { get; set; }
+        public int DateToNZ { get; set; }
+
         public int LookupIntervalDays { get; set; }
         public bool BlockShipments { get; set; }
+        public bool BlockShipmentsNZ { get; set; }
         public bool BlockLocations { get; set; }
         public bool BlockProducts { get; set; }
         public bool BlockPrices { get; set; }
+        public bool BlockPricesNZ { get; set; }
         public bool BlockSales { get; set; }
+        public bool BlockSalesNZ { get; set; }
         public bool BlockPermanentMarkdowns { get; set; }
+        public bool BlockPermanentMarkdownsNZ { get; set; }
         public bool BlockInventory { get; set; }
         public bool BlockInventoryAdjustments { get; set; }
+        public bool BlockInventoryAdjustmentsNZ { get; set; }
         public bool BlockTransfersFromHO { get; set; }
+        public bool BlockTransfersFromHONZ { get; set; }
         public bool BlockTransfersFromBranches { get; set; }
+        public bool BlockTransfersFromBranchesNZ { get; set; }
         public bool BlockOrders { get; set; }
         public bool DevMode { get; set; }
+        public int WacIntervalDays { get; set; }
+
+        public String ShipmentsNZUpdate
+        {
+            get => getShipmentsNZUpdate();
+            set => setShipmentsNZUpdate(value);
+        }
+
+        private String getShipmentsNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "ShipmentsNZUpdate", "");
+
+        }
+
+        private void setShipmentsNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "ShipmentsNZUpdate", value);
+        }
 
         public String ShipmentsUpdate
         {
@@ -109,6 +171,27 @@ namespace PolitixDaas
             anIni.writeString("System", "InventoryAdjustmentsUpdate", value);
         }
 
+        public String InventoryAdjustmentsNZUpdate
+        {
+            get => getInventoryAdjustmentsNZUpdate();
+            set => setInventoryAdjustmentsNZUpdate(value);
+        }
+
+        private String getInventoryAdjustmentsNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "InventoryAdjustmentsNZUpdate", "");
+        }
+
+        private void setInventoryAdjustmentsNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "InventoryAdjustmentsNZUpdate", value);
+        }
+
+
         public String PermanentMarkdownUpdate
         {
             get => getPermanentMarkdownUpdate();
@@ -148,9 +231,52 @@ namespace PolitixDaas
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            anIni.writeString("System", "TransfersFromHOUpdate", value);
+            anIni.writeString("System", "TransfersFromHONZUpdate", value);
         }
 
+
+        public String TransfersFromHONZUpdate
+        {
+            get => getTransfersUpdateFromHONZUpdate();
+            set => setTransfersFromHONZUpdate(value);
+        }
+
+        private String getTransfersUpdateFromHONZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "TransfersFromHONZUpdate", "");
+        }
+
+
+        private void setTransfersFromHONZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "TransfersFromHONZUpdate", value);
+        }
+
+
+        public String PermanentMarkdownNZUpdate
+        {
+            get => getPermanentMarkdownNZUpdate();
+            set => setPermanentMarkdownNZUpdate(value);
+        }
+
+        private String getPermanentMarkdownNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "PermanentMarkdownNZUpdate", "");
+        }
+
+        private void setPermanentMarkdownNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "PermanentMarkdownNZUpdate", value);
+
+        }
 
         public String TransfersFromBranchesUpdate
         {
@@ -172,6 +298,29 @@ namespace PolitixDaas
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
             anIni.writeString("System", "TransfersFromBranchesUpdate", value);
         }
+
+
+        public String TransfersFromBranchesNZUpdate
+        {
+            get => getTransfersFromBranchesNZUpdate();
+            set => setTransfersFromBranchesNZUpdate(value);
+        }
+
+
+        private String getTransfersFromBranchesNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "TransfersFromBranchesNZUpdate", "");
+        }
+
+        private void setTransfersFromBranchesNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "TransfersFromBranchesNZUpdate", value);
+        }
+
 
 
         public String LocationUpdate
@@ -238,6 +387,29 @@ namespace PolitixDaas
             anIni.writeString("System", "PriceUpdate", value);
         }
 
+        public String PriceNZUpdate
+        {
+            get => getPriceNZUpdate();
+            set => setPriceNZUpdate(value);
+        }
+
+        private String getPriceNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "PriceNZUpdate", "");
+
+        }
+
+        private void setPriceNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "PriceNZUpdate", value);
+        }
+
+
+
         public String SaleUpdate
         {
             get => getSaleUpdate();
@@ -257,6 +429,27 @@ namespace PolitixDaas
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
             return anIni.readString("System", "SaleUpdate", "");
         }
+
+        public String SaleUpdateNZ
+        {
+            get => getSaleUpdateNZ();
+            set => setSaleUpdateNZ(value);
+        }
+
+        private void setSaleUpdateNZ(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "SaleUpdateNZ", value);
+        }
+
+        private String getSaleUpdateNZ()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "SaleUpdateNZ", "");
+        }
+
 
         public String InventoryUpdate
         {
@@ -329,6 +522,7 @@ namespace PolitixDaas
             SqlUser = anIni.readString("SQL", "userid", "");
             SqlPassword = anIni.readString("SQL", "password", "");
             SqlErsDatabase = anIni.readString("SQL", "ersdatabase", "");
+            SqlErsNZDatabase = anIni.readString("SQL", "ersnzdatabase", "");
 
             String osAuthentic = anIni.readString("SQL", "osauthentication", "0");
             SqlOsAuthentication = osAuthentic.Equals("1") || osAuthentic.ToUpper().Equals("Y");
@@ -347,11 +541,23 @@ namespace PolitixDaas
             String sBlockPrices = anIni.readString("SYSTEM", "BlockPrices", "");
             BlockPrices = sBlockPrices.Equals("1") || sBlockPrices.ToUpper().Equals("Y");
 
+            String sBlockPricesNZ = anIni.readString("SYSTEM", "BlockPricesNZ", "");
+            BlockPricesNZ = sBlockPricesNZ.Equals("1") || sBlockPricesNZ.ToUpper().Equals("Y");
+
             String sBlockSales = anIni.readString("SYSTEM", "BlockSales", "");
             BlockSales = sBlockSales.Equals("1") || sBlockSales.ToUpper().Equals("Y");
 
+
+            String sBlockSalesNZ = anIni.readString("SYSTEM", "BlockSalesNZ", "");
+            BlockSalesNZ = sBlockSalesNZ.Equals("1") || sBlockSalesNZ.ToUpper().Equals("Y");
+
+
             String sBlockPermanentMarkdowns = anIni.readString("SYSTEM", "BlockPermanentMarkdowns", "");
             BlockPermanentMarkdowns = sBlockPermanentMarkdowns.Equals("1") || sBlockPermanentMarkdowns.ToUpper().Equals("Y");
+
+            String sBlockPermanentMarkdownsNZ = anIni.readString("SYSTEM", "BlockPermanentMarkdownsNZ", "");
+            BlockPermanentMarkdownsNZ = sBlockPermanentMarkdownsNZ.Equals("1") || sBlockPermanentMarkdownsNZ.ToUpper().Equals("Y");
+
 
             String sInventory = anIni.readString("SYSTEM", "BlockInventory", "");
             BlockInventory = sInventory.Equals("1") || sInventory.ToUpper().Equals("Y");
@@ -359,14 +565,24 @@ namespace PolitixDaas
             String sInventoryAdjustments = anIni.readString("SYSTEM", "BlockInventoryAdjustments", "");
             BlockInventoryAdjustments = sInventoryAdjustments.Equals("1") || sInventoryAdjustments.ToUpper().Equals("Y");
 
+            String sInventoryAdjustmentsNZ = anIni.readString("SYSTEM", "BlockInventoryAdjustmentsNZ", "");
+            BlockInventoryAdjustmentsNZ = sInventoryAdjustmentsNZ.Equals("1") || sInventoryAdjustmentsNZ.ToUpper().Equals("Y");
+
+
             //BlockRetailTransfers
             String sBlockTransfersFromHO = anIni.readString("SYSTEM", "BlockTransfersFromHO", "");
             BlockTransfersFromHO = sBlockTransfersFromHO.Equals("1") || sBlockTransfersFromHO.ToUpper().Equals("Y");
+
+            String sBlockTransfersFromHONZ = anIni.readString("SYSTEM", "BlockTransfersFromHONZ", "");
+            BlockTransfersFromHONZ = sBlockTransfersFromHONZ.Equals("1") || sBlockTransfersFromHONZ.ToUpper().Equals("Y");
+
 
             //BlockTransfersFromBranches
             String sBlockTransfersFromBranches = anIni.readString("SYSTEM", "BlockTransfersFromBranches", "");
             BlockTransfersFromBranches = sBlockTransfersFromBranches.Equals("1") || sBlockTransfersFromBranches.ToUpper().Equals("Y");
 
+            String sBlockTransfersFromBranchesNZ = anIni.readString("SYSTEM", "BlockTransfersFromBranchesNZ", "");
+            BlockTransfersFromBranchesNZ = sBlockTransfersFromBranchesNZ.Equals("1") || sBlockTransfersFromBranchesNZ.ToUpper().Equals("Y");
             //BlockOrders
             String sBlockOrders = anIni.readString("SYSTEM", "BlockOrders", "");
             BlockOrders = sBlockOrders.Equals("1") || sBlockOrders.ToUpper().Equals("Y");
@@ -374,6 +590,8 @@ namespace PolitixDaas
             String sBlockShipments = anIni.readString("SYSTEM", "BlockShipments", "");
             BlockShipments = sBlockShipments.Equals("1") || sBlockShipments.ToUpper().Equals("Y");
 
+            String sBlockShipmentsNZ = anIni.readString("SYSTEM", "BlockShipmentsNZ", "");
+            BlockShipmentsNZ = sBlockShipmentsNZ.Equals("1") || sBlockShipmentsNZ.ToUpper().Equals("Y");
 
             String sDevMode = anIni.readString("SYSTEM", "DevMode", "");
             DevMode = sDevMode.Equals("1") || sDevMode.ToUpper().Equals("Y");
@@ -386,16 +604,22 @@ namespace PolitixDaas
                 LocationModule = 1;
             }
             MinSendDate = anIni.readInteger("SYSTEM", "MinSendDate", 20210301);
+            MinSendDateNZ = anIni.readInteger("SYSTEM", "MinSendDateNZ", 20210301);
             PermanentMarkDownsInitialDate = anIni.readInteger("SYSTEM", "PermanentMarkDownsInitialDate", 20210301);
+            PermanentMarkDownsNZInitialDate = anIni.readInteger("SYSTEM", "PermanentMarkDownsNZInitialDate", 20210301);
 
             InventoryAdjustmentsInitialDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentsInitialDate", 20210301);
+            InventoryAdjustmentsNZInitialDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentsNZInitialDate", 20210301);
 
             TransfersFromHOInitialDate = anIni.readInteger("SYSTEM", "TransfersFromHOInitialDate", 20210301);
+            TransfersFromHONZInitialDate = anIni.readInteger("SYSTEM", "TransfersFromHONZInitialDate", 20210301);
 
             TransfersFromBranchesInitialDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesInitialDate", 20210301);
+            TransfersFromBranchesNZInitialDate =anIni.readInteger("SYSTEM", "TransfersFromBranchesNZInitialDate", 20210301);
 
             OrdersInitialDate = anIni.readInteger("SYSTEM", "OrdersInitialDate", 20210301);
             ShipmentsInitialDate = anIni.readInteger("SYSTEM", "ShipmentsInitialDate", 20210301);
+            ShipmentsNZInitialDate = anIni.readInteger("SYSTEM", "ShipmentsNZInitialDate", 20210301);
 
 
             ActiveMQUrl = anIni.readString("SYSTEM", "ActiveMQUrl", "");
@@ -412,28 +636,147 @@ namespace PolitixDaas
             ShipmentsQueueName = anIni.readString("Queues", "Shipments", "");
             DateFrom = anIni.readInteger("SYSTEM", "SalesDateFrom", 0);
             DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
+            DateFromNZ = anIni.readInteger("SYSTEM", "SalesNZDateFrom", 0);
+            DateToNZ = anIni.readInteger("SYSTEM", "SalesNZDateTo", 0);
 
             ShipmentFromDate = anIni.readInteger("SYSTEM", "ShipmentsFromDate", 0);
             ShipmentToDate = anIni.readInteger("SYSTEM", "ShipmentsToDate", 0);
+            ShipmentNZFromDate = anIni.readInteger("SYSTEM", "ShipmentsNZFromDate", 0);
+            ShipmentNZToDate = anIni.readInteger("SYSTEM", "ShipmentsNZToDate", 0);
 
             LookupIntervalDays = anIni.readInteger("SYSTEM", "LookupIntervalDays", 7);
+            WacIntervalDays = anIni.readInteger("SYSTEM", "WacIntervalDays", 7);
+            MarkdownsFromDate = anIni.readInteger("SYSTEM", "MarkdownsFromDate", 0);
+            MarkdownsToDate = anIni.readInteger("SYSTEM", "MarkdownsToDate", 0);
+            MarkdownsNZFromDate = anIni.readInteger("SYSTEM", "MarkdownsNZFromDate", 0);
+            MarkdownsNZToDate = anIni.readInteger("SYSTEM", "MarkdownsNZToDate", 0);
+
+            InventoryAdjustmentFromDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentFromDate", 0);
+            InventoryAdjustmentToDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentToDate", 0);
+
+            InventoryAdjustmentNZFromDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentNZFromDate", 0);
+            InventoryAdjustmentNZToDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentNZToDate", 0);
+            OrdersFromDate = anIni.readInteger("SYSTEM", "OrdersFromDate", 0);
+            OrdersToDate = anIni.readInteger("SYSTEM", "OrdersToDate", 0);
+            TransfersFromHOFromDate = anIni.readInteger("SYSTEM", "TransfersFromHOFromDate", 0);
+            TransfersFromHOToDate = anIni.readInteger("SYSTEM", "TransfersFromHOToDate", 0);
+            TransfersFromHONZFromDate = anIni.readInteger("SYSTEM", "TransfersFromHONZFromDate", 0);
+            TransfersFromHONZToDate = anIni.readInteger("SYSTEM", "TransfersFromHONZToDate", 0);
+
+            TransfersFromBranchesFromDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesFromDate", 0);
+            TransfersFromBranchesToDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesToDate", 0);
+
+            TransfersFromBranchesNZFromDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesNZFromDate", 0);
+            TransfersFromBranchesNZToDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesNZToDate", 0);
+
         }
+
+        public void resetInventoryAdjustmentDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "InventoryAdjustmentFromDate", "0");
+            anIni.writeString("SYSTEM", "InventoryAdjustmentToDate", "0");
+        }
+
+        public void resetInventoryAdjustmentNZDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "InventoryAdjustmentNZFromDate", "0");
+            anIni.writeString("SYSTEM", "InventoryAdjustmentNZToDate", "0");
+        }
+
 
         public void resetSalesDateRange()
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            anIni.writeString("System", "SalesDateFrom", "0");
-            anIni.writeString("System", "SalesDateTo", "0");
+            anIni.writeString("SYSTEM", "SalesDateFrom", "0");
+            anIni.writeString("SYSTEM", "SalesDateTo", "0");
 
         }
+
+        public void resetSalesNZDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "SalesNZDateFrom", "0");
+            anIni.writeString("SYSTEM", "SalesNZDateTo", "0");
+
+        }
+
 
         public void resetShipmentsDateRange()
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            anIni.writeString("System", "ShipmentsFromDate", "0");
-            anIni.writeString("System", "ShipmentsToDate", "0");
+            anIni.writeString("SYSTEM", "ShipmentsFromDate", "0");
+            anIni.writeString("SYSTEM", "ShipmentsToDate", "0");
+        }
+
+        public void resetShipmentsNZDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "ShipmentsNZFromDate", "0");
+            anIni.writeString("SYSTEM", "ShipmentsNZToDate", "0");
+        }
+
+
+        public void resetMarkdownsDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "MarkdownsFromDate", "0");
+            anIni.writeString("SYSTEM", "MarkdownsToDate", "0");
+        }
+        public void resetMarkdownsNZDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "MarkdownsNZFromDate", "0");
+            anIni.writeString("SYSTEM", "MarkdownsNZToDate", "0");
+        }
+
+        public void resetOrdersDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "OrdersFromDate", "0");
+            anIni.writeString("SYSTEM", "OrdersToDate", "0");
+        }
+
+        public void resetTransfersFromHoRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "TransfersFromHOFromDate", "0");
+            anIni.writeString("SYSTEM", "TransfersFromHOToDate", "0");
+        }
+
+        public void resetTransfersFromHoNZRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "TransfersFromHONZFromDate", "0");
+            anIni.writeString("SYSTEM", "TransfersFromHONZToDate", "0");
+        }
+
+        public void resetTransfersFromBranchesRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "TransfersFromBranchesFromDate", "0");
+            anIni.writeString("SYSTEM", "TransfersFromBranchesToDate", "0");
+        }
+
+        public void resetTransfersFromBranchesNZRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "TransfersFromBranchesNZFromDate", "0");
+            anIni.writeString("SYSTEM", "TransfersFromBranchesNZToDate", "0");
         }
 
 

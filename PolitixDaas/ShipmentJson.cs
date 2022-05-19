@@ -16,6 +16,7 @@ namespace PolitixDaas
         public String Id { get; set; }
         public int ShipmentDate { get; set; }
         public String Text { get; set; }
+        public String Currency { get; set; }
         public List<GoodsInLine> Lines { get; set; }
     }
 

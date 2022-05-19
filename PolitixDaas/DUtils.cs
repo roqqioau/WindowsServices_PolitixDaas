@@ -17,6 +17,7 @@ namespace PolitixDaas
         public DCsetup dcSetup;
 
         private Dictionary<String, String> lstDiscount = new Dictionary<string, string>();
+        private Dictionary<String, String> lstDiscountNZ = new Dictionary<string, string>();
 
         private String DaasExportTable { get;  set; }
 
@@ -135,6 +136,53 @@ namespace PolitixDaas
                     try
                     {
                         areason = lstDiscount[akey];
+                    }
+                    catch { }
+                    acounter++;
+                    continue;
+                }
+                if (acounter == 1)
+                {
+                    amount = Logging.strToDoubleDef(afield, 0) / 100;
+                    break;
+                }
+
+
+            }
+
+            discountLine.DiscountReasonId = refNo;
+            discountLine.DiscountReason = areason;
+            discountLine.Amount = amount;
+        }
+
+
+        public void populateDiscountNZ(String kasInfo, DiscountLine discountLine)
+        {
+            if (kasInfo == null || kasInfo.Trim().Equals(""))
+            {
+                return;
+            }
+            String areason = "";
+
+            String refNo = "";
+
+            String[] fields = kasInfo.Trim().Split(' ');
+            int acounter = 0;
+            double amount = 0;
+            for (int i = 0; i < fields.Length; i++)
+            {
+                String afield = fields[i].Trim();
+                if (afield.Equals(""))
+                {
+                    continue;
+                }
+                if (acounter == 0)
+                {
+                    String akey = afield;
+                    refNo = afield;
+                    try
+                    {
+                        areason = lstDiscountNZ[akey];
                     }
                     catch { }
                     acounter++;
@@ -291,6 +339,36 @@ namespace PolitixDaas
 
         }
 
+        private SqlConnection openERSNZSQLConnection()
+        {
+            SqlConnection sqlConnection = null;
+
+            String cnString = "Data Source=" + dcSetup.SqlServer + ";" +
+                 "Initial Catalog=" + dcSetup.SqlErsNZDatabase + ";" +
+                 "User id=" + dcSetup.SqlUser + ";" +
+                 "Password=" + dcSetup.SqlPassword + ";Connect Timeout=30;MultipleActiveResultSets = true;";
+
+            if (dcSetup.SqlOsAuthentication)
+            {
+                cnString = cnString + "Integrated Security=SSPI;";
+
+            }
+
+            try
+            {
+                sqlConnection = new SqlConnection(cnString);
+                sqlConnection.Open();
+                return sqlConnection;
+            }
+            catch (Exception e)
+            {
+                Logging.WriteErrorLog("Could not open database connection - " + e.Message);
+                return null;
+            }
+
+        }
+
+
         private String getCustNo(String kasInfo)
         {
             String custNo = "0";
@@ -386,6 +464,66 @@ namespace PolitixDaas
 
         }
 
+        private String getCustNoFromTransactionNZ(SqlConnection ersConnection, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr)
+        {
+
+            //           String asql = "select  KAS_INFO from KASSTRNS  WITH (NOLOCK) where  KAS_INFO like '% 03 %' and KAS_SATZART = 16 " +
+            String asql = "select  KAS_INFO from V_KASSTRNS  WITH (NOLOCK) where     KAS_SATZART = 16 " +
+                " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
+                " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() ;
+
+            String kasInfo = "";
+            using (SqlCommand acommand = new SqlCommand(asql, ersConnection))
+            {
+                Object anObj = acommand.ExecuteScalar();
+                if (anObj != null)
+                {
+                    kasInfo = anObj.ToString();
+                }
+            }
+            if (!kasInfo.Equals(""))
+            {
+                return getCustNo(kasInfo);
+            }
+            asql = "select  KAS_INFO from V_KASIDLTA  WITH (NOLOCK) where  KAS_SATZART = 16 " +
+                " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
+                " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() ;
+
+            using (SqlCommand acommand = new SqlCommand(asql, ersConnection))
+            {
+                Object anObj = acommand.ExecuteScalar();
+                if (anObj != null)
+                {
+                    kasInfo = anObj.ToString();
+                }
+            }
+            if (!kasInfo.Equals(""))
+            {
+                return getCustNo(kasInfo);
+            }
+
+            asql = "select  KAS_INFO from V_KASSE  WITH (NOLOCK) where  KAS_SATZART = 16 " +
+                " and KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() +
+                " and KAS_KASSE = " + kasKasse.ToString() + " and KAS_BONNR = " + kasBonnr.ToString() ;
+
+            using (SqlCommand acommand = new SqlCommand(asql, ersConnection))
+            {
+                Object anObj = acommand.ExecuteScalar();
+                if (anObj != null)
+                {
+                    kasInfo = anObj.ToString();
+                }
+            }
+            if (!kasInfo.Equals(""))
+            {
+                return getCustNo(kasInfo);
+            }
+
+
+            return "0";
+        }
+
+
         private String getCustNoFromTransaction(SqlConnection ersConnection, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr, int kasMandant)
         {
 
@@ -462,13 +600,13 @@ namespace PolitixDaas
             String dateFrom = dcSetup.ShipmentFromDate.ToString();
             String dateTo = dcSetup.ShipmentToDate.ToString();
 
-            if (dcSetup.ShipmentFromDate > 0 && dcSetup.ShipmentToDate > 0)
+            if (dcSetup.ShipmentFromDate > 0 || dcSetup.ShipmentToDate > 0)
             {
                 String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SHIPMENT' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
                 using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
                 {
-                    cmd.Parameters.AddWithValue("@mindate", dcSetup.ShipmentFromDate);
-                    cmd.Parameters.AddWithValue("@maxDate", dcSetup.ShipmentToDate);
+                    cmd.Parameters.AddWithValue("@mindate", dcSetup.ShipmentFromDate.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dcSetup.ShipmentToDate.ToString());
                     cmd.ExecuteNonQuery();
                 }
 
@@ -487,10 +625,12 @@ namespace PolitixDaas
                 top10 = " top " + dcSetup.ResultSet.ToString();
             }
 
-            String headSql = "select " + top10 + " WEH_ORIG, WEH_EINGANG, WEH_DATUM, WEH_TEXT from WE_HEADR " +
+            String headSql = "select " + top10 + " WEH_ORIG, WEH_EINGANG, WEH_DATUM, WEH_TEXT, WEH_WAEHRUNG from WE_HEADR " +
                 " where ((WEH_DATUM >=  " + initialdate + " and WEH_DATUM >= " + iLastUpdate + ") or (WEH_DATUM >= " + dcSetup.ShipmentFromDate + " and WEH_DATUM <= " + dcSetup.ShipmentToDate + ")) " +
                 " and WEH_MANDANT = 1 " + 
                 " order by WEH_DATUM ";
+
+            Logging.WriteDebug(headSql, dcSetup.Debug);
 
             using (SqlCommand cmd = new SqlCommand(headSql, ersConnection))
             {
@@ -508,8 +648,8 @@ namespace PolitixDaas
                         shipmentJson.Shipment.Lines = new List<GoodsInLine>();
                         shipmentJson.Shipment.ShipmentDate = Logging.strToIntDef(areader["WEH_DATUM"].ToString(), 0);
                         shipmentJson.Shipment.Text = areader["WEH_TEXT"].ToString();
-
-                        using(SqlCommand cmdDet = new SqlCommand(detSql, ersConnection))
+                        shipmentJson.Shipment.Currency = areader["WEH_WAEHRUNG"].ToString();
+                        using (SqlCommand cmdDet = new SqlCommand(detSql, ersConnection))
                         {
                             cmdDet.Parameters.AddWithValue("@WEZ_ORIG", Logging.strToIntDef(areader["WEH_ORIG"].ToString(), 0));
                             cmdDet.Parameters.AddWithValue("@WEZ_EINGANG", Logging.strToIntDef(areader["WEH_EINGANG"].ToString(), 0));
@@ -538,12 +678,12 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
-                            "1", "1", "1", "SHIPMENT", Logging.strToInt64Def(dcSetup.OrdersUpdate, 0), ersConnection);
+                            "1", "1", "1", "SHIPMENT", Logging.strToInt64Def(dcSetup.ShipmentsUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5))
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.Debug);
-                            SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.OrdersQueueName);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.ShipmentsQueueName);
                             updateDaasExport(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "1", "SHIPMENT", md5Contents, ersConnection);
                         }
 
@@ -556,10 +696,129 @@ namespace PolitixDaas
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
             dcSetup.ShipmentsUpdate = snow;
-
+            dcSetup.resetShipmentsDateRange();
 
 
         }
+
+        public void getShipmentsNZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getShipmentsNZ");
+
+            String lastUpdate = dcSetup.ShipmentsNZUpdate;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SHIPMENTNZ' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            String dateFrom = dcSetup.ShipmentNZFromDate.ToString();
+            String dateTo = dcSetup.ShipmentNZToDate.ToString();
+
+            if (dcSetup.ShipmentNZFromDate > 0 || dcSetup.ShipmentNZToDate > 0)
+            {
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SHIPMENTNZ' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dcSetup.ShipmentNZFromDate.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dcSetup.ShipmentNZToDate.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.ShipmentsNZInitialDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String headSql = "select " + top10 + " WEH_ORIG, WEH_EINGANG, WEH_DATUM, WEH_TEXT, WEH_WAEHRUNG from WE_HEADR " +
+                " where ((WEH_DATUM >=  " + initialdate + " and WEH_DATUM >= " + iLastUpdate + ") or (WEH_DATUM >= " + dcSetup.ShipmentNZFromDate + " and WEH_DATUM <= " + dcSetup.ShipmentNZToDate + ")) " +
+                " order by WEH_DATUM ";
+
+            Logging.WriteDebug(headSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(headSql, ersConnection))
+            {
+                String detSql = "SELECT WEZ_ZEILE, WEZ_REFNUMMER, WEZ_BESTELLNUMMER [ORDER_NUMNER], WEZ_BESTELLZEILE[ORDER_POSITION], WEZ_ANZBESTELLT [ORDERED_QTY], " +
+                    " WEZ_ANZGELIEFERT[DELIVERY_NOTE_QTY], WEZ_ANZBERECHNET[INVOICED_QTY],  WEZ_EKWPREIS[PP_PRICE], WEZ_ANZGEZAEHLT[QTY_DELIVERED] FROM WE_ZEILE " +
+                    " WHERE WEZ_ORIG = @WEZ_ORIG AND WEZ_EINGANG = @WEZ_EINGANG ";
+
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        ShipmentJson shipmentJson = new ShipmentJson();
+                        shipmentJson.Shipment = new GoodsIn();
+                        shipmentJson.Shipment.Id = areader["WEH_ORIG"].ToString() + "-" + areader["WEH_EINGANG"].ToString();
+                        shipmentJson.Shipment.Lines = new List<GoodsInLine>();
+                        shipmentJson.Shipment.ShipmentDate = Logging.strToIntDef(areader["WEH_DATUM"].ToString(), 0);
+                        shipmentJson.Shipment.Text = areader["WEH_TEXT"].ToString();
+                        shipmentJson.Shipment.Currency = areader["WEH_WAEHRUNG"].ToString();
+
+                        using (SqlCommand cmdDet = new SqlCommand(detSql, ersConnection))
+                        {
+                            cmdDet.Parameters.AddWithValue("@WEZ_ORIG", Logging.strToIntDef(areader["WEH_ORIG"].ToString(), 0));
+                            cmdDet.Parameters.AddWithValue("@WEZ_EINGANG", Logging.strToIntDef(areader["WEH_EINGANG"].ToString(), 0));
+                            using (SqlDataReader detReader = cmdDet.ExecuteReader())
+                            {
+                                while (detReader.Read())
+                                {
+                                    GoodsInLine anItem = new GoodsInLine();
+                                    shipmentJson.Shipment.Lines.Add(anItem);
+                                    anItem.LineNo = Logging.strToIntDef(detReader["WEZ_ZEILE"].ToString(), 0);
+                                    anItem.DeliveryNoteQty = Logging.strToDoubleDef(detReader["DELIVERY_NOTE_QTY"].ToString(), 0);
+                                    anItem.OrderNo = Convert.ToInt32(detReader["ORDER_NUMNER"]);
+                                    anItem.OrderPosition = Logging.strToIntDef(detReader["ORDER_POSITION"].ToString(), 0);
+                                    anItem.PP_Price = Logging.strToDoubleDef(detReader["PP_PRICE"].ToString(), 0);
+                                    anItem.QtyDelivered = Logging.strToDoubleDef(detReader["QTY_DELIVERED"].ToString(), 0);
+                                    anItem.QtyInvoiced = Logging.strToDoubleDef(detReader["INVOICED_QTY"].ToString(), 0);
+                                    anItem.QtyOrderd = Logging.strToDoubleDef(detReader["ORDERED_QTY"].ToString(), 0);
+                                    anItem.SkuId = Logging.strToIntDef(detReader["WEZ_REFNUMMER"].ToString(), 0);
+
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(shipmentJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
+                            "1", "1", "1", "SHIPMENTNZ", Logging.strToInt64Def(dcSetup.ShipmentsNZUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.ShipmentsQueueName);
+                            updateDaasExport(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "1", "SHIPMENTNZ", md5Contents, ersConnection);
+                        }
+
+
+                    }
+                }
+
+            }
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.ShipmentsNZUpdate = snow;
+            dcSetup.resetShipmentsNZDateRange();
+
+
+        }
+
 
         public void getPOs(SqlConnection ersConnection)
         {
@@ -590,10 +849,24 @@ namespace PolitixDaas
                 top10 = " top " + dcSetup.ResultSet.ToString();
             }
 
+            int dateFrom = dcSetup.OrdersFromDate;
+            int dateTo = dcSetup.OrdersToDate;
+
+            if(dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'ORDER' and DAAS_KEY3 >= @mindate and DAAS_KEY3 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
 
 
             String anSql = "select " + top10 + "  BST_ORIGNR, BST_BESTELLUNG, BST_STATUS, BST_BESTELLDATUM [ORDER_DATE],  BST_LIEFER_AB [DELIVERY_DATE_FROM], BST_LIEFER_BIS [DELIVEY_DATE_TO], " +
-                " BST_EINGANGDATUM[ARRIVAL_DATE], BST_LIEFERANT[SUPPLIER], BST_TOT_WARE_EK[TOTAL_PURCHASE_VALUE], BST_TOT_WARE_VK[TOTAL_SALE_VALUE], BST_TOT_ANZAHL[TOTAL_QTY], " +
+                " BST_EINGANGDATUM[ARRIVAL_DATE], BST_LIEFERANT[SUPPLIER], BST_TOT_WARE_EK[TOTAL_PURCHASE_VALUE], BST_TOT_WARE_VK[TOTAL_SALE_VALUE], BST_TOT_ANZAHL[TOTAL_QTY], BST_ULOG_DATE, " +
                 " RTRIM(BST_TEXT_1 + ' ' + BST_TEXT_2)[OTEXT],  " +
                 " CASE " +
                 "   WHEN BST_STATUS = 0 THEN 'PLANNED' " +
@@ -603,7 +876,9 @@ namespace PolitixDaas
                 "   WHEN BST_STATUS = 4 THEN 'CANCELLED' " +
                 "   ELSE '' " +
                 " END[STATUS] " +
-                " from V_BESTHEAD WHERE BST_MANDANT = 1 AND BST_ULOG_DATE >= " + iLastUpdate + " AND BST_ULOG_DATE >= " + initialdate ;
+                " from V_BESTHEAD WHERE BST_MANDANT = 1 AND ((BST_ULOG_DATE >= " + iLastUpdate + " AND BST_ULOG_DATE >= " + initialdate + ") or (BST_ULOG_DATE >= " + dateFrom + " AND BST_ULOG_DATE <= " + dateTo + " ))";
+
+            Logging.WriteDebug(anSql, dcSetup.Debug);
 
             String detsql = "SELECT BDT_ORIGNR, BDT_BESTELLUNG, BDT_REFNUMMER, BDT_TEXT, BDT_BESTELL_MENGE[ORDER_QTY], BDT_ANZ_LIEFERUNG[DELIVERI_QTY], BDT_RECHNUNG_MENGE[INVOICED_QTY], " +
                 " BDT_EK_CALC[PURCHASE_PRICE_TOTAL], BDT_VK_CALC[SALES_PRICE_TOTAL], BDT_VK_SOLL, BDT_EKP_BESTELLT[PURCHASE_PRICE], BDT_POSITION, " +
@@ -667,13 +942,13 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(areader["BST_ORIGNR"].ToString(), areader["BST_BESTELLUNG"].ToString(),
-                            "1", "1", "1", "ORDER", Logging.strToInt64Def(dcSetup.OrdersUpdate, 0), ersConnection);
+                            areader["BST_ULOG_DATE"].ToString(), "1", "1", "ORDER", Logging.strToInt64Def(dcSetup.OrdersUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5) )
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(apo).ToString(), dcSetup.Debug);
                             SendNewMessageQueue(SimpleJson.SerializeObject(apo).ToString(), dcSetup.OrdersQueueName);
-                            updateDaasExport(areader["BST_ORIGNR"].ToString(), areader["BST_BESTELLUNG"].ToString(), "1", "1", "1", "ORDER", md5Contents, ersConnection);
+                            updateDaasExport(areader["BST_ORIGNR"].ToString(), areader["BST_BESTELLUNG"].ToString(), areader["BST_ULOG_DATE"].ToString(), "1", "1", "ORDER", md5Contents, ersConnection);
                         }
 
 
@@ -685,8 +960,165 @@ namespace PolitixDaas
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
             dcSetup.OrdersUpdate = snow;
+            dcSetup.resetOrdersDateRange();
 
         }
+
+        public void getTransfersFromBranchesNZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getTransfersFromBranchesNZ");
+
+            String lastUpdate = dcSetup.TransfersFromBranchesNZUpdate;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_BNZ' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.TransfersFromBranchesNZInitialDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            int dateFrom = dcSetup.TransfersFromBranchesNZFromDate;
+            int dateTo = dcSetup.TransfersFromBranchesNZToDate;
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_BNZ' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+
+            String anSql = "select " + top10 + " FTK_FILIALE, FTK_KASSE, FTK_NUMMER, FTK_VON_NUMMER [FROM_BRANCH], FTK_AN_NUMMER [TO_BRANCH], FTK_CLOG_DATE [CREATION_DATE], FTK_ACK_DATE, " +
+                " FTK_LIEFERDATUM[DELIVERY_DATE], FTK_CLOG_USER,FTK_STATUS, FTK_TEXT, FTK_REF_FILIALE, FTK_REF_KASSE, FTK_REF_NUMMER, " +
+                " CASE " +
+                "   WHEN FTK_TYP = 2 THEN 'OPEN TRANSFERS' " +
+                "   WHEN FTK_TYP = 4 THEN 'GOODS IN (FROM BRANCH / STOCKROOM IN TRANSIT) IN THIS BRANCH' " +
+                "   WHEN FTK_TYP = 6 THEN 'INTER BRANCH TRANSFERS' " +
+                "   else '' " +
+                " end[FTK_TYP], " +
+                " (select isnull(max(KAS_VK_DATUM), 0) from KASSTRNS where KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
+                " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE] " +
+                " from V_FTR_KOPF " +
+                " where FTK_TYP in (4, 2, 6) and FTK_AN_TYP = 2 AND FTK_FILIALE <> 1 " +
+                " and(FTK_VON_NUMMER > 200 or FTK_AN_NUMMER > 200) AND((FTK_LIEFERDATUM >= " + initialdate + " and FTK_LIEFERDATUM >= " + iLastUpdate +
+                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " )) ";
+
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            String dSql = "select FTR_ZEILE [LINE_NO], FTR_REFNUMMER [SKU_ID], FTR_ANZAHL [QTY], FTR_EINZELPREIS [UNIT_PRICE], ART_VKPREIS from V_FTR_DATA " +
+                " JOIN ARTIKEL ON ART_REFNUMMER = FTR_REFNUMMER " +
+                " where FTR_FILIALE = @FTR_FILIALE AND FTR_KASSE = @FTR_KASSE AND FTR_NUMMER = @FTR_NUMMER ";
+
+            String dkSql = "select KAS_POSNR, KAS_REFNUMMER, KAS_ANZAHL, KAS_BETRAG " +
+                " from KASSTRNS " +
+                " where KAS_MANDANT = 1 AND KAS_SATZART = 20 AND KAS_REFNUMMER > 20 AND " +
+                " KAS_DATUM = @KAS_DATUM AND KAS_FILIALE = @FTR_FILIALE AND KAS_KASSE = @FTR_KASSE AND KAS_BONNR =  @FTR_NUMMER ORDER BY 1";
+
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        String delNo = areader["FTK_REF_FILIALE"].ToString() + "/" + areader["FTK_REF_KASSE"].ToString() + "/" + areader["FTK_REF_NUMMER"].ToString();
+
+                        BTransfersJson btransfersJson = new BTransfersJson();
+                        TransferBHeader aheader = new TransferBHeader();
+                        btransfersJson.TransferFromBranch = aheader;
+                        String dndate = areader["DN_DATE"].ToString();
+                        if (dndate.Equals("0"))
+                        {
+                            dndate = "";
+                        }
+
+                        int afiliale = Convert.ToInt32(areader["FTK_FILIALE"]);
+                        int akasse = Convert.ToInt32(areader["FTK_KASSE"]);
+                        int tnumber = Convert.ToInt32(areader["FTK_NUMMER"]);
+                        aheader.TrasferNo = afiliale.ToString() + "-" + akasse.ToString() + "-" + tnumber.ToString();
+                        aheader.FromStore = Convert.ToInt32(areader["FROM_BRANCH"]);
+                        aheader.RequestUser = Convert.ToInt32(areader["FTK_CLOG_USER"]);
+                        aheader.ToStore = Convert.ToInt32(areader["TO_BRANCH"]);
+                        aheader.Type = areader["FTK_TYP"].ToString();
+                        aheader.Details = new List<TransferBDetails>();
+                        aheader.CreationDate = Convert.ToInt32(areader["CREATION_DATE"]);
+                        aheader.DespatchDate = Convert.ToInt32(areader["DELIVERY_DATE"]);
+                        aheader.AcknowledgeDate = Convert.ToInt32(areader["FTK_ACK_DATE"]);
+                        aheader.DeliveryNoteNumber = delNo;
+                        aheader.DeliveryNote = areader["DELIVERY_NOTE"].ToString();
+                        aheader.Text = areader["FTK_TEXT"].ToString();
+                        aheader.DNDate = dndate;
+                        int ftkTyp = Convert.ToInt32(areader["FTK_TYP_NO"]);
+                        using (SqlCommand dcmd = new SqlCommand(dSql, ersConnection))
+                        {
+                            dcmd.Parameters.AddWithValue("@FTR_FILIALE", afiliale);
+                            dcmd.Parameters.AddWithValue("@FTR_KASSE", akasse);
+                            dcmd.Parameters.AddWithValue("@FTR_NUMMER", tnumber);
+                            using (SqlDataReader dreader = dcmd.ExecuteReader())
+                            {
+                                while (dreader.Read())
+                                {
+                                    TransferBDetails adetails = new TransferBDetails();
+                                    aheader.Details.Add(adetails);
+
+                                    adetails.LineNo = Convert.ToInt32(dreader["LINE_NO"].ToString());
+                                    adetails.Qty = Logging.strToDoubleDef(dreader["QTY"].ToString(), 0);
+                                    adetails.SkuId = Convert.ToInt32(dreader["SKU_ID"]);
+                                    adetails.UnitPrice = Logging.strToDoubleDef(dreader["UNIT_PRICE"].ToString(), 0);
+                                    if (adetails.UnitPrice == 0)
+                                    {
+                                        adetails.UnitPrice = Logging.strToDoubleDef(dreader["ART_VKPREIS"].ToString(), 0);
+                                    }
+                                }
+                            }
+
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(btransfersJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(afiliale.ToString(), akasse.ToString(),
+                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_BNZ", Logging.strToInt64Def(dcSetup.TransfersFromHONZUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5) && ((ftkTyp != 2) || (ftkTyp == 2 && aheader.Details.Count > 0)))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(btransfersJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(btransfersJson).ToString(), dcSetup.TransfersFromBQueueName);
+                            updateDaasExport(afiliale.ToString(), akasse.ToString(), tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_BNZ", md5Contents, ersConnection);
+                        }
+
+
+
+                    }
+                }
+            }
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.TransfersFromBranchesNZUpdate = snow;
+            dcSetup.resetTransfersFromBranchesNZRange();
+
+
+        }
+
 
         public void getTransfersFromBranches(SqlConnection ersConnection)
         {
@@ -715,23 +1147,46 @@ namespace PolitixDaas
                 top10 = " top " + dcSetup.ResultSet.ToString();
             }
 
+            int dateFrom = dcSetup.TransfersFromBranchesFromDate;
+            int dateTo = dcSetup.TransfersFromBranchesToDate;
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_B' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
 
             String anSql = "select " + top10 + " FTK_FILIALE, FTK_KASSE, FTK_NUMMER, FTK_VON_NUMMER [FROM_BRANCH], FTK_AN_NUMMER [TO_BRANCH], FTK_CLOG_DATE [CREATION_DATE], FTK_ACK_DATE, " +
-                " FTK_LIEFERDATUM[DELIVERY_DATE], FTK_CLOG_USER,FTK_STATUS, " +
+                " FTK_LIEFERDATUM[DELIVERY_DATE], FTK_CLOG_USER,FTK_STATUS, FTK_TEXT, FTK_REF_FILIALE, FTK_REF_KASSE, FTK_REF_NUMMER, " +
                 " CASE " +
                 "   WHEN FTK_TYP = 2 THEN 'OPEN TRANSFERS' " +
                 "   WHEN FTK_TYP = 4 THEN 'GOODS IN (FROM BRANCH / STOCKROOM IN TRANSIT) IN THIS BRANCH' " +
                 "   WHEN FTK_TYP = 6 THEN 'INTER BRANCH TRANSFERS' " +
                 "   else '' " +
                 " end[FTK_TYP], " +
+                " (select isnull(max(KAS_VK_DATUM), 0) from KASSTRNS where KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
                 " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE] " +
                 " from V_FTR_KOPF " +
-                " where FTK_MANDANT = 1 AND FTK_TYP in (4, 2, 6) and FTK_AN_TYP = 2 " +
+                " where FTK_MANDANT = 1 AND FTK_TYP in (4, 2, 6) and FTK_AN_TYP = 2 AND FTK_FILIALE <> 1 " +
                 " and(FTK_VON_NUMMER > 200 or FTK_AN_NUMMER > 200) AND((FTK_LIEFERDATUM >= " + initialdate + " and FTK_LIEFERDATUM >= " + iLastUpdate +
-                " and FTK_TYP = 2) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " and FTK_TYP in (6, 4))) ";
+                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " )) ";
 
-            String dSql = "select FTR_ZEILE [LINE_NO], FTR_REFNUMMER [SKU_ID], FTR_ANZAHL [QTY], FTR_EINZELPREIS [UNIT_PRICE] from V_FTR_DATA " +
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            String dSql = "select FTR_ZEILE [LINE_NO], FTR_REFNUMMER [SKU_ID], FTR_ANZAHL [QTY], FTR_EINZELPREIS [UNIT_PRICE], ART_VKPREIS from V_FTR_DATA " +
+                " JOIN ARTIKEL ON ART_MANDANT = 1 AND ART_REFNUMMER = FTR_REFNUMMER " +
                 " where FTR_MANDANT = 1 AND FTR_FILIALE = @FTR_FILIALE AND FTR_KASSE = @FTR_KASSE AND FTR_NUMMER = @FTR_NUMMER ";
+
+            String dkSql = "select KAS_POSNR, KAS_REFNUMMER, KAS_ANZAHL, KAS_BETRAG " +
+                " from KASSTRNS " +
+                " where KAS_MANDANT = 1 AND KAS_SATZART = 20 AND KAS_REFNUMMER > 20 AND " +
+                " KAS_DATUM = @KAS_DATUM AND KAS_FILIALE = @FTR_FILIALE AND KAS_KASSE = @FTR_KASSE AND KAS_BONNR =  @FTR_NUMMER ORDER BY 1";
 
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -740,9 +1195,16 @@ namespace PolitixDaas
                 {
                     while (areader.Read())
                     {
+                        String delNo = areader["FTK_REF_FILIALE"].ToString() + "/" + areader["FTK_REF_KASSE"].ToString() + "/" + areader["FTK_REF_NUMMER"].ToString();
+
                         BTransfersJson btransfersJson = new BTransfersJson();
                         TransferBHeader aheader = new TransferBHeader();
                         btransfersJson.TransferFromBranch = aheader;
+                        String dndate = areader["DN_DATE"].ToString();
+                        if (dndate.Equals("0") )
+                        {
+                            dndate = "";
+                        }
 
                         int afiliale = Convert.ToInt32(areader["FTK_FILIALE"]);
                         int akasse = Convert.ToInt32(areader["FTK_KASSE"]);
@@ -756,7 +1218,10 @@ namespace PolitixDaas
                         aheader.CreationDate = Convert.ToInt32(areader["CREATION_DATE"]);
                         aheader.DespatchDate = Convert.ToInt32(areader["DELIVERY_DATE"]);
                         aheader.AcknowledgeDate = Convert.ToInt32(areader["FTK_ACK_DATE"]);
-                        aheader.DeliveryNoteNumber = areader["DELIVERY_NOTE"].ToString();
+                        aheader.DeliveryNoteNumber = delNo;
+                        aheader.DeliveryNote = areader["DELIVERY_NOTE"].ToString();
+                        aheader.Text = areader["FTK_TEXT"].ToString();
+                        aheader.DNDate = dndate;
                         int ftkTyp = Convert.ToInt32(areader["FTK_TYP_NO"]);
                         using (SqlCommand dcmd = new SqlCommand(dSql, ersConnection))
                         {
@@ -774,6 +1239,10 @@ namespace PolitixDaas
                                     adetails.Qty = Logging.strToDoubleDef(dreader["QTY"].ToString(), 0);
                                     adetails.SkuId = Convert.ToInt32(dreader["SKU_ID"]);
                                     adetails.UnitPrice = Logging.strToDoubleDef(dreader["UNIT_PRICE"].ToString(), 0);
+                                    if(adetails.UnitPrice == 0)
+                                    {
+                                        adetails.UnitPrice = Logging.strToDoubleDef(dreader["ART_VKPREIS"].ToString(), 0);
+                                    }
                                 }
                             }
 
@@ -784,13 +1253,13 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(afiliale.ToString(), akasse.ToString(),
-                            tnumber.ToString(), "1", "1", "TRANSFERS_B", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
+                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_B", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5) && ((ftkTyp != 2) || (ftkTyp == 2 && aheader.Details.Count > 0)))
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(btransfersJson).ToString(), dcSetup.Debug);
                             SendNewMessageQueue(SimpleJson.SerializeObject(btransfersJson).ToString(), dcSetup.TransfersFromBQueueName);
-                            updateDaasExport(afiliale.ToString(), akasse.ToString(), tnumber.ToString(), "1", "1", "TRANSFERS_HO", md5Contents, ersConnection);
+                            updateDaasExport(afiliale.ToString(), akasse.ToString(), tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_B", md5Contents, ersConnection);
                         }
 
 
@@ -801,7 +1270,7 @@ namespace PolitixDaas
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
             dcSetup.TransfersFromBranchesUpdate = snow;
-
+            dcSetup.resetTransfersFromBranchesRange();
 
 
         }
@@ -827,6 +1296,9 @@ namespace PolitixDaas
             int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
             int initialdate = dcSetup.TransfersFromHOInitialDate;
 
+            int dateFrom = dcSetup.TransfersFromHOFromDate;
+            int dateTo = dcSetup.TransfersFromHOToDate;
+
 
             String top10 = " ";
             if (dcSetup.ResultSet > 0)
@@ -834,9 +1306,21 @@ namespace PolitixDaas
                 top10 = " top " + dcSetup.ResultSet.ToString();
             }
 
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_HO' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
 
-            String anSql = "select " + top10 + " LFS_ORIGNR, LFS_ANG_ANR, LFS_LFS, cast(LFS_ORIGNR as varchar) + '-' +  cast(LFS_ANG_ANR as varchar) + '-' + cast(LFS_LFS as varchar) [TRANSFER_NO], " + 
-                " LFS_VONNR[FROM_STORE], LFS_KNR[TO_STORE], LFS_CLOG_DATE, LFS_DATLFS, " +
+            }
+
+
+            String anSql = "select " + top10 + " LFS_ORIGNR, LFS_ANG_ANR, LFS_LFS, cast(LFS_ORIGNR as varchar) + '-' +  cast(LFS_ANG_ANR as varchar) + '-' + cast(LFS_LFS as varchar) [TRANSFER_NO], " +
+                " LFS_VONNR[FROM_STORE], LFS_KNR[TO_STORE], LFS_CLOG_DATE, LFS_DATLFS, LFS_ULOG_DATE, " +
                 " case  " +
                 "   when LFS_STATUS = 0 then 'Standard delivery note' " +
                 "   when LFS_STATUS = 1 then 'Delivery note being delivered' " +
@@ -847,7 +1331,7 @@ namespace PolitixDaas
                 " FROM V_LIEFHEAD " +
                 " where " +
                 //" LFS_KTYP = 6 AND LFS_STATUS = 2 and " + 
-                " LFS_MANDANT = 1 AND LFS_KTYP = 2 and LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate;
+                " LFS_MANDANT = 1 AND LFS_KTYP = 2 and ((LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate + ") or (LFS_CLOG_DATE >= " + iLastUpdate + " and LFS_CLOG_DATE >= " + initialdate + ") or (LFS_ULOG_DATE > 0 and LFS_ULOG_DATE >= " + dateFrom + " and LFS_ULOG_DATE <= " + dateTo + "  )  )";
             Logging.WriteDebug(anSql, dcSetup.Debug);
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -888,6 +1372,148 @@ namespace PolitixDaas
                             trCmd.Parameters.AddWithValue("@LZL_ORIGNR", origin);
                             trCmd.Parameters.AddWithValue("@LZL_ANG_ANR", andAnr);
                             trCmd.Parameters.AddWithValue("@LZL_LFS", lfs);
+                            using (SqlDataReader trReader = trCmd.ExecuteReader())
+                            {
+                                while (trReader.Read())
+                                {
+                                    TransferDetails adetail = new TransferDetails();
+                                    transfer.Details.Add(adetail);
+                                    adetail.Cost = Logging.strToDoubleDef(trReader["COST"].ToString(), 0);
+                                    adetail.LineNo = Convert.ToInt32(trReader["LZL_ZNR"]);
+                                    adetail.Qty = Logging.strToDoubleDef(trReader["QTY"].ToString(), 0);
+                                    adetail.RetailPrice = Logging.strToDoubleDef(trReader["RT_PRICE"].ToString(), 0);
+                                    adetail.SkuId = Convert.ToInt32(trReader["SKU_ID"]);
+                                    adetail.TransferNo = transfer.TrasferNo;
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(transferJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(origin.ToString(), andAnr.ToString(),
+                            lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "TRANSFERS_HO", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.TransfersFromHOQueueName);
+                            updateDaasExport(origin.ToString(), andAnr.ToString(), lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "TRANSFERS_HO", md5Contents, ersConnection);
+                        }
+
+
+                    }
+
+                }
+            }
+
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.TransfersFromHOUpdate = snow;
+            dcSetup.resetTransfersFromHoRange();
+
+        }
+
+
+        public void getRetailTransfersNZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getRetailTransfersNZ");
+
+            String lastUpdate = dcSetup.TransfersFromHONZUpdate;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_HONZ' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.TransfersFromHONZInitialDate;
+
+            int dateFrom = dcSetup.TransfersFromHONZFromDate;
+            int dateTo = dcSetup.TransfersFromHONZToDate;
+
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'TRANSFERS_HONZ' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+
+            String anSql = "select " + top10 + " LFS_ORIGNR, LFS_ANG_ANR, LFS_LFS, cast(LFS_ORIGNR as varchar) + '-' +  cast(LFS_ANG_ANR as varchar) + '-' + cast(LFS_LFS as varchar) [TRANSFER_NO], " +
+                " LFS_VONNR[FROM_STORE], LFS_KNR[TO_STORE], LFS_CLOG_DATE, LFS_DATLFS, LFS_ULOG_DATE, " +
+                " case  " +
+                "   when LFS_STATUS = 0 then 'Standard delivery note' " +
+                "   when LFS_STATUS = 1 then 'Delivery note being delivered' " +
+                "   when LFS_STATUS = 2 then 'Delivery note was delivered' " +
+                "   when LFS_STATUS = 3 then 'Delivery note back from delivery (branch)' " +
+                "   else '' " +
+                " end[LFS_STATUS], LFS_CLOG_USER " +
+                " FROM V_LIEFHEAD " +
+                " where " +
+                //" LFS_KTYP = 6 AND LFS_STATUS = 2 and " + 
+                " LFS_KTYP = 2 and ((LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate + ") or (LFS_CLOG_DATE >= " + iLastUpdate + " and LFS_CLOG_DATE >= " + initialdate + ") or (LFS_ULOG_DATE > 0 and LFS_ULOG_DATE >= " + dateFrom + " and LFS_ULOG_DATE <= " + dateTo + "  )  )";
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        RTransfersJson transferJson = new RTransfersJson();
+                        TransferHeader transfer = new TransferHeader();
+                        transferJson.TransferFromHO = transfer;
+
+                        transfer.CreationDate = Convert.ToInt32(areader["LFS_CLOG_DATE"]);
+                        transfer.DespatchDate = Convert.ToInt32(areader["LFS_DATLFS"]);
+                        transfer.FromStore = Convert.ToInt32(areader["FROM_STORE"]);
+                        transfer.RequestUser = Convert.ToInt32(areader["LFS_CLOG_USER"]);
+                        transfer.ToStore = Convert.ToInt32(areader["TO_STORE"]);
+                        transfer.TrasferNo = areader["TRANSFER_NO"].ToString();
+                        transfer.Details = new List<TransferDetails>();
+
+                        int origin = Convert.ToInt32(areader["LFS_ORIGNR"]);
+                        int andAnr = Convert.ToInt32(areader["LFS_ANG_ANR"]);
+                        int lfs = Convert.ToInt32(areader["LFS_LFS"]);
+
+                        String trSql = "select  LZL_ZNR, LZL_REFNR[SKU_ID], LZL_MENGE [QTY] , " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_EKDM = 0 THEN LZL_EEK " +
+                            "   ELSE LZL_STAT_EKDM " +
+                            " END[COST], " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_VKDM = 0 THEN LZL_EVKB " +
+                            "   ELSE LZL_STAT_VKDM " +
+                            " END[RT_PRICE] " +
+                            " from LIEFZEIL " +
+                            " where LZL_REFNR <> 0  AND LZL_ORIGNR = @LZL_ORIGNR AND LZL_ANG_ANR = @LZL_ANG_ANR AND LZL_LFS = @LZL_LFS ";
+                        using (SqlCommand trCmd = new SqlCommand(trSql, ersConnection))
+                        {
+                            trCmd.Parameters.AddWithValue("@LZL_ORIGNR", origin);
+                            trCmd.Parameters.AddWithValue("@LZL_ANG_ANR", andAnr);
+                            trCmd.Parameters.AddWithValue("@LZL_LFS", lfs);
                             using(SqlDataReader trReader = trCmd.ExecuteReader())
                             {
                                 while (trReader.Read())
@@ -909,13 +1535,13 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(origin.ToString(), andAnr.ToString(),
-                            lfs.ToString(), "1", "1", "TRANSFERS_HO", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
+                            lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "TRANSFERS_HONZ", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5))
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.Debug);
                             SendNewMessageQueue(SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.TransfersFromHOQueueName);
-                            updateDaasExport(origin.ToString(), andAnr.ToString(), lfs.ToString(), "1", "1", "TRANSFERS_HO", md5Contents, ersConnection);
+                            updateDaasExport(origin.ToString(), andAnr.ToString(), lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "TRANSFERS_HONZ", md5Contents, ersConnection);
                         }
 
 
@@ -927,7 +1553,126 @@ namespace PolitixDaas
 
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
-            dcSetup.TransfersFromHOUpdate = snow;
+            dcSetup.TransfersFromHONZUpdate = snow;
+            dcSetup.resetTransfersFromHoNZRange();
+
+        }
+
+        public void getInventoryAdjustmentsNZ(SqlConnection ersNZConnection)
+        {
+            Logging.WriteLog("Starting getInventoryAdjustmentsNZ");
+            String lastUpdate = dcSetup.InventoryAdjustmentsNZUpdate;
+
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'I_ADJUSTMENTNZ' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersNZConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.InventoryAdjustmentsNZInitialDate;
+
+            int dateFrom = dcSetup.InventoryAdjustmentNZFromDate;
+            int dateTo = dcSetup.InventoryAdjustmentNZToDate;
+
+            if (dateFrom == 0)
+            {
+                dateFrom = 20170101;
+            }
+
+            if (dateFrom != 0 || dateTo != 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'I_ADJUSTMENTNZ' and DAAS_KEY3 >= @mindate and DAAS_KEY3 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersNZConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String anSql = "select " + top10 + " LKO_REFNUMMER, LKO_FILIALE, LKO_DATUM, LKO_UNIQUE, LKO_GRUND, LKO_TEXT, LKO_MENGE, LKO_ULOG_USER, ART_VKPREIS[RT_Price], ART_GRPNUMMER,  " +
+                " case  " +
+                "   when ART_SET_EKGEW_MODE <> 0 then ART_EK_GEWICHTET " +
+                "   else ART_EK_DM " +
+                " end[WeightedAverageCost] " +
+                " , ISNULL(ILG_TEXT, '') [REASON] " +
+                " from V_LAGERKOR " +
+                " LEFT JOIN V_INVLKGRD ON ILG_GRUND = LKO_GRUND " +
+                " JOIN V_ARTIKEL ON ART_REFNUMMER = LKO_REFNUMMER " +
+                " WHERE ((LKO_DATUM >= " + initialdate + " AND LKO_DATUM >= " + iLastUpdate + ") or (LKO_DATUM >= " + dateFrom + " and LKO_DATUM <= " + dateTo + " )) " +
+                " order by 3 ";
+
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(anSql, ersNZConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        InventoryAdjustmentJson ajsonObj = new InventoryAdjustmentJson();
+                        ajsonObj.InventoryAdjustmentLine = new InventoryAdjustment();
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentDate = Convert.ToInt32(areader["LKO_DATUM"]);
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentNumber = areader["LKO_REFNUMMER"].ToString() + "-" + areader["LKO_FILIALE"].ToString() + "-" + areader["LKO_DATUM"].ToString() +
+                            "-" + areader["LKO_UNIQUE"].ToString();
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentQty = Logging.strToDoubleDef(areader["LKO_MENGE"].ToString(), 0);
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentReason = areader["REASON"].ToString();
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentReasonId = Convert.ToInt32(areader["LKO_GRUND"].ToString());
+                        ajsonObj.InventoryAdjustmentLine.BranchNo = Convert.ToInt32(areader["LKO_FILIALE"].ToString());
+                        ajsonObj.InventoryAdjustmentLine.EmployeeId = Convert.ToInt32(areader["LKO_ULOG_USER"].ToString());
+                        ajsonObj.InventoryAdjustmentLine.RetailPrice = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
+                        ajsonObj.InventoryAdjustmentLine.SkuId = Convert.ToInt32(areader["LKO_REFNUMMER"]);
+                        ajsonObj.InventoryAdjustmentLine.UniqueNo = Convert.ToInt32(areader["LKO_UNIQUE"]);
+                        ajsonObj.InventoryAdjustmentLine.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentText = areader["LKO_TEXT"].ToString();
+
+                        ajsonObj.InventoryAdjustmentLine.GroupNo = Logging.strToIntDef(areader["ART_GRPNUMMER"].ToString(), 0);
+
+                        String ajsonStr = SimpleJson.SerializeObject(ajsonObj).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(ajsonObj.InventoryAdjustmentLine.BranchNo.ToString(), ajsonObj.InventoryAdjustmentLine.SkuId.ToString(),
+                            ajsonObj.InventoryAdjustmentLine.AdjustmentDate.ToString(), ajsonObj.InventoryAdjustmentLine.UniqueNo.ToString(), "1", "I_ADJUSTMENTNZ",
+                            Logging.strToInt64Def(dcSetup.InventoryAdjustmentsUpdate, 0),
+                            ersNZConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(ajsonObj).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(ajsonObj).ToString(), dcSetup.InventoryAdjustmentsQueueName);
+                            updateDaasExport(ajsonObj.InventoryAdjustmentLine.BranchNo.ToString(), ajsonObj.InventoryAdjustmentLine.SkuId.ToString(),
+                                ajsonObj.InventoryAdjustmentLine.AdjustmentDate.ToString(), ajsonObj.InventoryAdjustmentLine.UniqueNo.ToString(), "1", "I_ADJUSTMENTNZ",
+                            md5Contents, ersNZConnection);
+                        }
+
+
+                    }
+                }
+
+            }
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.InventoryAdjustmentsNZUpdate = snow;
+            dcSetup.resetInventoryAdjustmentNZDateRange();
 
         }
 
@@ -959,7 +1704,27 @@ namespace PolitixDaas
             int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
             int initialdate = dcSetup.InventoryAdjustmentsInitialDate;
 
-            String anSql = "select " + top10 + " LKO_REFNUMMER, LKO_FILIALE, LKO_DATUM, LKO_UNIQUE, LKO_GRUND, LKO_TEXT, LKO_MENGE, LKO_ULOG_USER, ART_VKPREIS[RT_Price],   " +
+            int dateFrom = dcSetup.InventoryAdjustmentFromDate;
+            int dateTo = dcSetup.InventoryAdjustmentToDate;
+
+            if (dateFrom == 0)
+            {
+                dateFrom = 20170101;
+            }
+
+            if (dateFrom != 0 || dateTo != 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'I_ADJUSTMENT' and DAAS_KEY3 >= @mindate and DAAS_KEY3 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String anSql = "select " + top10 + " LKO_REFNUMMER, LKO_FILIALE, LKO_DATUM, LKO_UNIQUE, LKO_GRUND, LKO_TEXT, LKO_MENGE, LKO_ULOG_USER, ART_VKPREIS[RT_Price], ART_GRPNUMMER,  " +
                 " case  " +
                 "   when ART_SET_EKGEW_MODE <> 0 then ART_EK_GEWICHTET " +
                 "   else ART_EK_DM " +
@@ -968,7 +1733,8 @@ namespace PolitixDaas
                 " from V_LAGERKOR " +
                 " LEFT JOIN V_INVLKGRD ON ILG_MANDANT = 1 AND ILG_GRUND = LKO_GRUND " + 
                 " JOIN V_ARTIKEL ON ART_MANDANT = 1 AND ART_REFNUMMER = LKO_REFNUMMER " +
-                " WHERE LKO_MANDANT = 1 AND LKO_DATUM >= " + initialdate + " AND LKO_DATUM >= " + iLastUpdate;
+                " WHERE LKO_MANDANT = 1 AND ((LKO_DATUM >= " + initialdate + " AND LKO_DATUM >= " + iLastUpdate + ") or (LKO_DATUM >= " + dateFrom + " and LKO_DATUM <= " + dateTo + " )) " +
+                " order by 3 ";
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
 
@@ -993,7 +1759,9 @@ namespace PolitixDaas
                         ajsonObj.InventoryAdjustmentLine.SkuId = Convert.ToInt32(areader["LKO_REFNUMMER"]);
                         ajsonObj.InventoryAdjustmentLine.UniqueNo = Convert.ToInt32(areader["LKO_UNIQUE"]);
                         ajsonObj.InventoryAdjustmentLine.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
+                        ajsonObj.InventoryAdjustmentLine.AdjustmentText = areader["LKO_TEXT"].ToString();
 
+                        ajsonObj.InventoryAdjustmentLine.GroupNo =   Logging.strToIntDef(areader["ART_GRPNUMMER"].ToString(), 0);
 
                         String ajsonStr = SimpleJson.SerializeObject(ajsonObj).ToString();
                         String md5Contents = Logging.CreateMD5(ajsonStr);
@@ -1022,7 +1790,7 @@ namespace PolitixDaas
             DateTime anow = DateTime.Now;
             String snow = anow.ToString("yyyyMMddhhmmss");
             dcSetup.InventoryAdjustmentsUpdate = snow;
-
+            dcSetup.resetInventoryAdjustmentDateRange();
 
         }
 
@@ -1093,6 +1861,10 @@ namespace PolitixDaas
                 "   WHEN ART_EK_GEW_VALID = 1 THEN ART_EK_GEWICHTET " +
                 "   ELSE ART_EK_DM " +
                 " END[LAG_EK_GEWICHTET], " +
+                " CASE " +
+                "    WHEN LAG_LETZTEREINGANG > LAG_LETZTERVERKAUF THEN LAG_LETZTEREINGANG " +
+                "    ELSE LAG_LETZTERVERKAUF " +
+                " END[UPDATED_DATE], " +
 
                 " LAG_BESTAND  + ISNULL(LGD_DELTA, 0)[LAG_BESTAND], LAG_CLOG_DATE  " +
                 " FROM V_LAGER " +
@@ -1124,7 +1896,11 @@ namespace PolitixDaas
                         inventoryJson.InventoryLine = inventoryLine;
 
                         inventoryLine.Sku = Convert.ToInt32(areader["LAG_REFNUMMER"].ToString());
-                        inventoryLine.Inventorydate = Convert.ToInt32(areader["LAG_CLOG_DATE"]);
+
+
+
+                      //  inventoryLine.Inventorydate = Convert.ToInt32(areader["LAG_CLOG_DATE"]);
+                        inventoryLine.Inventorydate = Convert.ToInt32(areader["UPDATED_DATE"]);
                         inventoryLine.StockOnHand = Logging.strToDoubleDef(areader["LAG_BESTAND"].ToString(), 0);
                     //    inventoryLine.StockonTransit = 0;
                         inventoryLine.WeightedAverageCost = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
@@ -1143,6 +1919,14 @@ namespace PolitixDaas
                             {
                                 inventoryLine.StockInTransit = aline.Qty;
                             }
+
+                        }
+
+                        if(inventoryLine.Inventorydate == 0)
+                        {
+                            DateTime anowy = DateTime.Now;
+                            String snowy = anowy.ToString("yyyyMMdd");
+                            inventoryLine.Inventorydate = Convert.ToInt32(snowy);
 
                         }
 
@@ -1309,6 +2093,76 @@ namespace PolitixDaas
         }
 
 
+        int getKAS_ZEITNZ(SqlConnection ersConnection, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr)
+        {
+
+            String ansql = "select KAS_ZEIT from V_KASSE  " +
+                 " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                 " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR  ";
+
+            using (SqlCommand cmd = new SqlCommand(ansql, ersConnection))
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+            ansql = "select KAS_ZEIT from V_KASSTRNS  " +
+                " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR ";
+
+            using (SqlCommand cmd = new SqlCommand(ansql, ersConnection))
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+            ansql = "select KAS_ZEIT from V_KASIDLTA  " +
+                " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR  ";
+
+            using (SqlCommand cmd = new SqlCommand(ansql, ersConnection))
+            {
+                cmd.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                cmd.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                cmd.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                cmd.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        return areader.GetInt32(0);
+                    }
+                }
+
+            }
+
+
+
+            return 0;
+        }
+
+
+
         public void salesSecondPass(SqlConnection ersConnection)
         {
             Logging.WriteLog("salesSecondPass");
@@ -1319,7 +2173,7 @@ namespace PolitixDaas
                 top10 = " top " + dcSetup.ResultSet.ToString();
             }
 
-            int dayDiff = 7;
+            int dayDiff = dcSetup.WacIntervalDays;
 
             String anSql = "SELECT " + top10 + " DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4, DAAS_KEY5 " +
                 " FROM " + DaasExportTable  +
@@ -1352,6 +2206,51 @@ namespace PolitixDaas
 
 
         }
+
+
+        public void salesSecondPassNZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("salesSecondPass");
+            String startingDate = dcSetup.MinSendDate.ToString();
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            int dayDiff = dcSetup.WacIntervalDays;
+
+            String anSql = "SELECT " + top10 + " DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4  " +
+                " FROM " + DaasExportTable +
+                " where DAAS_SET_NAME = 'SALENZ' AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)  ) < " + dayDiff +
+                " AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) > " + dayDiff;
+            Logging.WriteDebug("salesSecondPass Sql: ", dcSetup.Debug);
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        int kDate = Logging.strToIntDef(areader["DAAS_KEY1"].ToString(), 0);
+                        int kFiliale = Logging.strToIntDef(areader["DAAS_KEY2"].ToString(), 0);
+                        int kasse = Logging.strToIntDef(areader["DAAS_KEY4"].ToString(), 0);
+                        int kbonir = Logging.strToIntDef(areader["DAAS_KEY5"].ToString(), 0);
+ 
+                        int kazZeilt = getKAS_ZEITNZ(ersConnection, kDate, kFiliale, kasse, kbonir);
+                        String custNo = getCustNoFromTransactionNZ(ersConnection, kDate, kFiliale, kasse, kbonir);
+
+                        processTransactionNZ(ersConnection, kDate, kFiliale, kasse, kbonir, kazZeilt, custNo);
+
+                    }
+                }
+            }
+
+
+
+        }
+
 
 
         public void getSales(SqlConnection ersConnection)
@@ -1393,8 +2292,8 @@ namespace PolitixDaas
                 String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALE' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
                 using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
                 {
-                    cmd.Parameters.AddWithValue("@mindate", dateFrom);
-                    cmd.Parameters.AddWithValue("@maxDate", dateTo);
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
                     cmd.ExecuteNonQuery();
                 }
 
@@ -1479,6 +2378,132 @@ namespace PolitixDaas
 
 
         }
+
+        public void getSalesNZ(SqlConnection ersConnection)
+        {
+            populateDiscountNZ(ersConnection);
+            Logging.WriteLog("Starting getSalesNZ");
+            String lastUpdate = dcSetup.SaleUpdateNZ;
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
+            if (sqlLastUpdate.Equals("0"))
+            {
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALENZ' ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            String startingDate = dcSetup.MinSendDateNZ.ToString();
+
+            int dayInterval = dcSetup.LookupIntervalDays;
+            if (dayInterval <= 0)
+            {
+                dayInterval = 1000;
+            }
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            DateTime fromDate = DateTime.Now.AddDays(-1 * dayInterval);
+            String anInterval = fromDate.ToString("yyyyMMdd");
+            String dateFrom = dcSetup.DateFromNZ.ToString();
+            String dateTo = dcSetup.DateToNZ.ToString();
+
+            if (dcSetup.DateFrom > 0 && dcSetup.DateTo > 0)
+            {
+                String anSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALENZ' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String sqlstr = "select distinct " + top10 + " K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX],  " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]  " +
+                " from V_KASIDLTA K  " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER  " +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX  " +
+                " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
+                " and not exists(select * from " + DaasExportTable + " D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2  " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALENZ'  ) " +
+
+                " and not exists(select * from  V_KASIDLTA D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20)  " +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) " +
+
+                " union all " +
+                " select distinct " + top10 + " K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX], " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]   " +
+                " from V_KASSTRNS K   " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER " +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX  " +
+                " where ((K.KAS_VK_DATUM > " + anInterval + " and  K.KAS_VK_DATUM > " + startingDate + ") or (K.KAS_VK_DATUM >= " + dateFrom + " and K.KAS_VK_DATUM <= " + dateTo + ") ) " +
+
+                " and not exists(select * from " + DaasExportTable + " D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2  " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALENZ' ) " +
+
+                " and not exists(select * from  V_KASSTRNS D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20) " +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) " +
+
+                " union all " +
+                " select distinct " + top10 + " K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX], " +
+                " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]   " +
+                " from V_KASSE K   " +
+                " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER " +
+                " left join V_ZEITZONE Z on FIL_ZEITZONE = Z.ZZO_INDEX " +
+                " where ((K.KAS_DATUM > " + anInterval + " and  K.KAS_DATUM > " + startingDate + ") or (K.KAS_DATUM >= " + dateFrom + " and K.KAS_DATUM <= " + dateTo + ") ) " +
+                " and not exists(select * from " + DaasExportTable + " D " +
+                "   where DAAS_KEY1 = K.KAS_DATUM and K.KAS_FILIALE = DAAS_KEY2 " +
+                "   and K.KAS_KASSE = DAAS_KEY4 and K.KAS_BONNR = DAAS_KEY5 AND DAAS_SET_NAME = 'SALENZ'  ) " +
+                " and not exists(select * from V_KASSE D  " +
+                " where D.KAS_DATUM = K.KAS_DATUM and K.KAS_FILIALE = D.KAS_FILIALE and KAS_SATZART in ( 10, 12, 20) " +
+                " and K.KAS_KASSE = D.KAS_KASSE and K.KAS_BONNR = D.KAS_BONNR) ";
+
+            sqlstr = "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, max(ZZO_STD_NAME) [ZZO_STD_NAME] , max(KAS_ZEIT)[KAS_ZEIT], max(FIL_INDEX) [FIL_INDEX] from (" + sqlstr +
+
+                " ) tbl group by KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR  order by 1,3,4,5    option (force order)";
+
+            Logging.WriteDebug("salesnz Sql: ", dcSetup.Debug);
+            Logging.WriteDebug(sqlstr, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(sqlstr, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        int kasDatum = Convert.ToInt32(areader["KAS_DATUM"]);
+                        int kasFiliale = Convert.ToInt32(areader["KAS_FILIALE"]);
+                        int kasKasse = Convert.ToInt32(areader["KAS_KASSE"]);
+                        int kasBonnr = Convert.ToInt32(areader["KAS_BONNR"]);
+                        int kasZeit = Convert.ToInt32(areader["KAS_ZEIT"]);
+  
+                        String custNo = getCustNoFromTransactionNZ(ersConnection, kasDatum, kasFiliale, kasKasse, kasBonnr);
+                        processTransactionNZ(ersConnection, kasDatum, kasFiliale, kasKasse, kasBonnr, kasZeit, custNo);
+
+
+
+                    }
+                }
+
+            }
+
+            dcSetup.resetSalesNZDateRange();
+
+
+        }
+
 
         private String getCurrency(int amandant)
         {
@@ -1910,6 +2935,434 @@ namespace PolitixDaas
 
         }
 
+        private void processTransactionNZ(SqlConnection ersConnection, int kasDatum, int kasFiliale, int kasKasse, int kasBonnr, int kasZeit, String custNo)
+        {
+            Logging.WriteLog("processTransactionNZ - kasdatum: " + kasDatum + " fasFiliale: " + kasFiliale + " kasKasse: " + kasKasse +
+                " kasBonnr: " + kasBonnr + " date: " + kasDatum.ToString() + " time: " + kasZeit.ToString());
+            String sdate = kasDatum.ToString();
+            if (sdate.Length != 8)
+            {
+                Logging.WriteErrorLog("kasDatum: " + kasDatum + " wrong format");
+                updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), "1", kasKasse.ToString(), kasBonnr.ToString(), "SALENZ", "", ersConnection);
+                return;
+            }
+
+
+            String nzCurrency = getCurrency(2);
+
+
+
+            String stime = kasZeit.ToString();
+            if (stime.Length != 6 && stime.Length != 5)
+            {
+                Logging.WriteErrorLog("kasZeit: " + stime + " wrong format");
+                stime = "121212";
+            }
+            if (stime.Length != 6)
+                stime = "0" + stime;
+
+            String theDate = sdate.Substring(0, 4) + "-" + sdate.Substring(4, 2) + "-" + sdate.Substring(6, 2);
+            String thetime = stime.Substring(0, 2) + ":" + stime.Substring(2, 2) + ":" + stime.Substring(4, 2);
+            String timestamp = theDate + "T" + thetime;
+
+            String anSql = "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER], KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER], isNull(PC.BEZ_TEXT, '')PETTYCASH,  round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT], " +
+                 " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP],  KAS_VK_DATUM, " +
+                 " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
+                 " isNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID], " +
+                 " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT], RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO]  " +
+                  " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY  order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE, KAS_USTKEY " +
+
+                 " from V_KASIDLTA    " +
+                 " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3)))  " +
+                 " LEFT JOIN V_KASSREF on KAS_REFNUMMER = KRF_REFNUMMER  " +
+                 " left join V_ARTIKEL on ART_REFNUMMER = KAS_REFNUMMER  " +
+                 " left join V_ART_KOPF on ART_WARENGR = AGR_WARENGR and ART_ABTEILUNG = AGR_ABTEILUNG and ART_TYPE = AGR_TYPE and ART_GRPNUMMER = AGR_GRPNUMMER  " +
+                 " left join V_LIEFERTN on AGR_LIEFERANT = LIF_NUMMER  " +
+                 " left join V_BEZ_ART P on LTRIM(RTrim(substring(KAS_INFO,7,2))) = RTRIM(LTrim(Str(P.BEZ_NUMMER, 3)))   " +
+                 " left join V_BEZ_ART BG on LTRIM(Str(BG.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and  SubString(KAS_INFO, 13, 2) = '03' and BG.BEZ_SPEZIAL_BEZ = 1  " +
+                 " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2)))   " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                 " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR " +
+                 " union " +
+                  "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER],  KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER], isNull(PC.BEZ_TEXT, '')PETTYCASH, round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT],  " +
+                 " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP], KAS_VK_DATUM, " +
+                 " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
+                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],  IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID], " +
+                 " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT],  RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO] " +
+                 " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY  order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY  order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON],  KAS_VK_DATUM as REAL_DATE, KAS_USTKEY   " +
+                 " from V_KASSTRNS " +
+                 " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3)))  " +
+                 " LEFT JOIN V_KASSREF on KAS_REFNUMMER = KRF_REFNUMMER " +
+                 " left join V_ARTIKEL on ART_REFNUMMER = KAS_REFNUMMER " +
+                 " left join V_ART_KOPF on ART_WARENGR = AGR_WARENGR and ART_ABTEILUNG = AGR_ABTEILUNG and ART_TYPE = AGR_TYPE and ART_GRPNUMMER = AGR_GRPNUMMER  " +
+                 " left join V_LIEFERTN on AGR_LIEFERANT = LIF_NUMMER  " +
+                 " left join V_BEZ_ART P on LTRIM(RTrim(substring(KAS_INFO,7,2))) = RTRIM(LTrim(Str(P.BEZ_NUMMER, 3)))   " +
+                 " left join V_BEZ_ART BG on LTRIM(Str(BG.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and  SubString(KAS_INFO, 13, 2) = '03' and BG.BEZ_SPEZIAL_BEZ = 1 " +
+                 //                " where KAS_DATUM = " + kasDatum.ToString() + " and KAS_FILIALE = " + kasFiliale.ToString() + 
+                 //                " and KAS_KASSE = " + kasKasse.ToString() + " and  KAS_BONNR = " + kasBonnr + " " +
+                 " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2)))  " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                 " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR " +
+
+                 " union " +
+                  "select KAS_DATUM, KAS_FILIALE, KAS_KASSE, KAS_BONNR, KAS_POSNR, IsNull(ART_LFID_NUMMER, '')[ART_LFID_NUMMER], KAS_REFNUMMER, KAS_SATZART, KAS_ZEIT, KAS_RETOUR, IsNull(AGR_GRPNUMMER, 0) [AGR_GRPNUMMER],  isNull(PC.BEZ_TEXT, '')PETTYCASH,  round(KAS_BETRAG * KAS_ANZAHL, 2)[LINE_AMOUNT]," +
+                 " KAS_FEHLBON, KAS_BETRAG, KAS_ANZAHL, KAS_INFO, IsNull(WAR_NUMMER, 0) [PROD_GROUP_NO],   WAR_TEXT[PROD_GROUP], KAS_VK_DATUM, " +
+                 " IsNull(KRF_BONTEXT2, '') + ' ' + IsNull(KRF_BONTEXT2, '') [ITEM_DESC], IsNull(ART_EINHEIT, '') [SIZE], IsNull(ART_EIGENSCHAFT, '') [COLOR], " +
+                 " IsNull(LIF_INDEX, '') [SUPPLIER], IsNull(AGR_TEXT, '') [ITEM_NAME], IsNull(P.BEZ_TEXT, '') [PAYMENT_METHOD],   IsNull( P.BEZ_NUMMER, 0) [PAYMENT_TYPE_ID],   " +
+                 " IsNull(P.BEZ_RUECK_FLAG, 0) BEZ_RUECK_FLAG, isNull(BG.BEZ_TEXT, '')[GIFT_CARD_TEXT], isNull(BG.BEZ_NUMMER, 0)[GIFT_CARD_PAYNO], IsNull(ART_GEWICHT, 0)[WEIGHT],  RTRIM(LTrim(substring(KAS_INFO,7,2))) [PAYMENT_NO]  " +
+                 " , IsNull((select top 1 UST_PROZENT from V_UMSATZST where UST_NUMMER = KAS_USTKEY  order by UST_DATUM desc), 0.0) [UST_PROZENT] " +
+                 " ,IsNull((select top 1 UST_TEXT from V_UMSATZST where UST_NUMMER = KAS_USTKEY order by UST_DATUM desc), '') [UST_TEXT], IsNull(RTG_TEXT, '') [REFUND_REASON], KAS_DATUM as REAL_DATE, KAS_USTKEY  " +
+
+                 " from V_KASSE  " +
+                 " LEFT JOIN V_WARENGRP on LTRIM(Str(WAR_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) " +
+                 " LEFT JOIN V_KASSREF on KAS_REFNUMMER = KRF_REFNUMMER " +
+                 " left join V_ARTIKEL on ART_REFNUMMER = KAS_REFNUMMER " +
+                 " left join V_ART_KOPF on ART_WARENGR = AGR_WARENGR and ART_ABTEILUNG = AGR_ABTEILUNG and ART_TYPE = AGR_TYPE and ART_GRPNUMMER = AGR_GRPNUMMER " +
+                 " left join V_LIEFERTN on AGR_LIEFERANT = LIF_NUMMER " +
+                 " left join V_BEZ_ART P on LTRIM(RTrim(substring(KAS_INFO,7,2))) = RTRIM(LTrim(Str(P.BEZ_NUMMER, 3))) " +
+                 " left join V_BEZ_ART BG on LTRIM(Str(BG.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 15, 3))) and  SubString(KAS_INFO, 13, 2) = '03' and BG.BEZ_SPEZIAL_BEZ = 1 " +
+                 " left join V_BEZ_ART PC on LTRIM(Str(PC.BEZ_NUMMER, 10)) = RTRIM(LTrim(SubString(KAS_INFO, 6, 2))) " +
+                 " left join V_RETGRUND on  SUBSTRING(KAS_INFO, 14, 1) = LTRIM(Str(RTG_NUMMER, 10)) " +
+                 " where KAS_DATUM = @KAS_DATUM and KAS_FILIALE = @KAS_FILIALE " +
+                 " and KAS_KASSE = @KAS_KASSE and  KAS_BONNR = @KAS_BONNR " +
+
+
+                 " order by 1 ,2, 3, 4, 5  option (force order)";
+
+            DataTable dsDetails = null;
+            //    Logging.WriteLog(anSql);
+            using (SqlDataAdapter daTrans = new SqlDataAdapter(anSql, ersConnection))
+            {
+                daTrans.SelectCommand.CommandTimeout = 600;
+                daTrans.SelectCommand.Parameters.AddWithValue("@KAS_DATUM", kasDatum);
+                daTrans.SelectCommand.Parameters.AddWithValue("@KAS_FILIALE", kasFiliale);
+                daTrans.SelectCommand.Parameters.AddWithValue("@KAS_KASSE", kasKasse);
+                daTrans.SelectCommand.Parameters.AddWithValue("@KAS_BONNR", kasBonnr);
+                dsDetails = new DataTable();
+                daTrans.Fill(dsDetails);
+            }
+            if (dsDetails == null)
+            {
+                updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), "1", kasKasse.ToString(), kasBonnr.ToString(), "SALENZ", "", ersConnection);
+                return;
+            }
+
+            SalesJson salesJson = new SalesJson();
+            salesJson.FuturaSale = new Sale();
+
+            string sStaffno = "1";
+            salesJson.FuturaSale.BranchNo = kasFiliale.ToString();
+            salesJson.FuturaSale.ReceiptId = kasFiliale.ToString() + "/" + kasKasse.ToString() + "/" + kasBonnr.ToString() + "/" + kasDatum.ToString();
+            salesJson.FuturaSale.EmployeeId = sStaffno;
+            salesJson.FuturaSale.CashierId = sStaffno;
+            salesJson.FuturaSale.ReceiptMode = "NORMAL";
+            salesJson.FuturaSale.ReceiptState = "FINISHED";
+            salesJson.FuturaSale.TillNo = kasKasse.ToString();
+            salesJson.FuturaSale.ReceiptNo = kasBonnr.ToString();
+            salesJson.FuturaSale.Timestamp = timestamp;
+            salesJson.FuturaSale.SaleType = "NORMAL";
+            salesJson.FuturaSale.SaleLines = new List<SaleLine>();
+            salesJson.FuturaSale.PaymentLines = new List<PaymentLine>();
+            salesJson.FuturaSale.CustomerNo = custNo;
+
+            int isVoid = 1;
+            double totSales = 0;
+            double totAmountPaid = 0;
+            bool arefund = false;
+            bool apurchase = false;
+            String taxName = "";
+            String afterPayId = "";
+            bool paymentExist = false;
+            bool itemExist = false;
+            bool giftcardIssue = false;
+
+            String pettyCash = "";
+            String paymPetty = "";
+
+
+            SaleLine saleLine = null;
+
+            int saleLineNo = 0;
+            int paymentLineNo = 0;
+
+            String transactionDate = "";
+            String stdate = "";
+
+            for (int k = 0; k < dsDetails.Rows.Count; k++)
+            {
+                DataRow arow = dsDetails.Rows[k];
+
+                if (k == 0)
+                {
+                    stdate = arow["KAS_VK_DATUM"].ToString();
+                    salesJson.FuturaSale.ReceiptId = kasFiliale.ToString() + "/" + kasKasse.ToString() + "/" + kasBonnr.ToString() + "/" + stdate;
+                    theDate = stdate.Substring(0, 4) + "-" + stdate.Substring(4, 2) + "-" + stdate.Substring(6, 2);
+                    timestamp = theDate + "T" + thetime;
+                    salesJson.FuturaSale.Timestamp = timestamp;
+
+
+                    try
+                    {
+                        transactionDate = stdate.Substring(0, 4) + "-" + stdate.Substring(4, 2) + "-" + stdate.Substring(6, 2);
+                    }
+                    catch (Exception e)
+                    {
+                        transactionDate = theDate;
+                    }
+                }
+
+                int recType = Convert.ToInt32(arow["KAS_SATZART"]);
+                double aqty = Convert.ToDouble(arow["KAS_ANZAHL"]);
+
+                int posNo = Convert.ToInt32(arow["KAS_POSNR"]);
+
+                int kasRetour = 0;
+                try
+                {
+                    kasRetour = Convert.ToInt32(arow["KAS_RETOUR"]);
+                }
+                catch (Exception e) { }
+
+
+                if (recType == 17 && aqty == 4)
+                {
+                    afterPayId = arow["KAS_INFO"].ToString().Trim();
+                    if (giftcardIssue)
+                    {
+                        if (saleLine != null)
+                        {
+                            saleLine.VoucherNumber = afterPayId;
+                            giftcardIssue = false;
+                            afterPayId = "";
+                        }
+                    }
+                }
+
+                if (recType == 17)
+                {
+                    //  String astr = arow["KAS_INFO"].ToString().Trim();
+                    //  if (astr.ToUpper().Contains("LAYB"))
+                    //  {
+                    //      if (saleLine != null)
+                    //      {
+                    //          saleLine.SalesMode = "LAYAWAY";
+                    //      }
+                    //  }
+                }
+
+
+                if (recType == 17 && Convert.ToDouble(arow["KAS_ANZAHL"]) == 16)
+                {
+                    if (saleLine != null)
+                    {
+                        saleLine.ReturnReason = arow["REFUND_REASON"].ToString().Trim();
+                    }
+                }
+                if (recType == 17 && Convert.ToDouble(arow["KAS_ANZAHL"]) == 5)
+                {
+                    if (saleLine != null)
+                    {
+                        DiscountLine discountLine = new DiscountLine();
+                        saleLine.DiscountLines.Add(discountLine);
+                        discountLine.PosNo = posNo;
+                        populateDiscountNZ(arow["KAS_INFO"].ToString(), discountLine);
+                    }
+                }
+
+                if (recType == 14)
+                {
+                    pettyCash = arow["PETTYCASH"].ToString();
+                }
+
+                if (recType == 16 && arow["KAS_FEHLBON"] != null && arow["KAS_FEHLBON"].ToString().Equals("0") && Convert.ToDouble(arow["KAS_BETRAG"]) != 0)
+                {
+                    paymentExist = true;
+                    PaymentLine paymentLine = new PaymentLine();
+                    salesJson.FuturaSale.PaymentLines.Add(paymentLine);
+                    paymentLine.PosNo = posNo;
+
+                    double paymentAmount = Convert.ToDouble(arow["KAS_BETRAG"]);
+
+                    if (arow["BEZ_RUECK_FLAG"].ToString().Equals("1"))
+                    {
+                        paymentAmount *= -1;
+                    }
+
+
+                    paymentLine.Amount = paymentAmount;
+                    paymentLine.PaymentType = arow["PAYMENT_METHOD"].ToString();
+                    paymentLine.PaymentTypeId = Convert.ToInt32(arow["PAYMENT_TYPE_ID"].ToString());
+
+                    if (arow["PAYMENT_METHOD"].ToString().ToUpper().Contains("PETTY"))
+                    {
+                        paymentLine.PaymentType = arow["PAYMENT_METHOD"].ToString() + " " + pettyCash;
+                        pettyCash = "";
+                        paymPetty = "petty cash";
+                    }
+                    paymentLine.RefNumber = afterPayId;
+                    afterPayId = "";
+
+                    paymentLine.Currency = nzCurrency;
+
+                    totAmountPaid += paymentAmount;
+
+                }
+
+                if (recType == 15)
+                {
+
+                    if (arow["KAS_FEHLBON"] == null || !arow["KAS_FEHLBON"].ToString().Equals("0"))
+                    {
+                        continue;
+                    }
+
+
+                    String anInfo = arow["KAS_INFO"].ToString().Trim();
+                    String[] theFields = anInfo.Split(' ');
+                    String amtField = "";
+                    for (int iii = 0; iii < theFields.Length; iii++)
+                    {
+                        String afield = theFields[iii].Trim();
+                        if (afield.Equals(""))
+                        {
+                            continue;
+                        }
+                        amtField = afield.Substring(0, afield.Length - 1);
+                    }
+
+                    int idisc = Logging.strToIntDef(amtField, 0);
+                    itemExist = true;
+
+                    giftcardIssue = false;
+
+                    saleLine = new SaleLine();
+                    salesJson.FuturaSale.SaleLines.Add(saleLine);
+                    saleLine.PosNo = posNo;
+
+                    saleLine.DiscountLines = new List<DiscountLine>();
+
+                    saleLine.SalesMode = "MODE_NORMAL";
+
+                    itemExist = true;
+
+                    saleLine.Qty = Math.Abs(aqty);
+                    saleLine.Price = Math.Abs(Convert.ToDouble(arow["KAS_BETRAG"]));
+                    saleLine.OriginalPrice = Math.Abs((idisc / 100.00));
+                    saleLine.LineValueGross = Convert.ToDouble(arow["LINE_AMOUNT"]);
+                    double anamount = Convert.ToDouble(arow["LINE_AMOUNT"]);
+                    double anamountAbs = Math.Abs(anamount);
+
+                    double atax = Convert.ToDouble(arow["UST_PROZENT"]);
+
+                    saleLine.VatPercent = atax;
+
+                    double anamountExTaxAbs = anamountAbs;
+                    if (atax != 0)
+                    {
+                        anamountExTaxAbs = anamountAbs / (1 + (1 / atax));
+                    }
+
+                    if (anamount < 0)
+                    {
+                        anamountExTaxAbs = -1 * anamountExTaxAbs;
+                    }
+                    saleLine.VatHeadEntityId = (Convert.ToInt32(arow["KAS_USTKEY"])).ToString();
+                    saleLine.VatAmount = anamountAbs - anamountExTaxAbs;
+                    //                    saleLine.LineValueGross = anamount;
+                    saleLine.LineValueGross = anamountAbs;
+                    saleLine.LineValueNet = anamountExTaxAbs;
+
+
+                    String kasInfo = arow["KAS_INFO"].ToString();
+                    if (kasInfo.Length > 5)
+                        sStaffno = kasInfo.Substring(0, 6);
+
+
+                    saleLine.SalesPersonId = sStaffno;
+                    saleLine.ProductGroupId = Convert.ToInt32(arow["PROD_GROUP_NO"]);
+                    saleLine.SkuId = Convert.ToInt32(arow["KAS_REFNUMMER"]);
+                    saleLine.VoucherNumber = "";
+                    saleLine.VoucherPaymentTypeId = "";
+                    saleLine.VoucherPaymentType = "";
+                    if (saleLine.SkuId == 0)
+                    {
+                        String giftIssue = arow["GIFT_CARD_TEXT"].ToString();
+                        if (!giftIssue.Equals(""))
+                        {
+                            saleLine.VoucherNumber = arow["GIFT_CARD_PAYNO"].ToString();
+                            giftcardIssue = true;
+                            saleLine.VoucherPaymentTypeId = arow["GIFT_CARD_PAYNO"].ToString();
+                            saleLine.VoucherPaymentType = arow["GIFT_CARD_TEXT"].ToString();
+                        }
+                    }
+
+                    saleLine.ReturnReason = "";
+                    bool isReturn = false;
+                    saleLine.SaleLineType = "SALE";
+                    if (kasRetour == 1)
+                    {
+                        saleLine.SaleLineType = "RETURN";
+                        arefund = true;
+                        isReturn = true;
+                        saleLine.Qty = -1 * saleLine.Qty;
+
+                        saleLine.LineValueGross = -1 * saleLine.LineValueGross;
+                        saleLine.LineValueNet = -1 * saleLine.LineValueNet;
+                        saleLine.VatAmount = -1 * saleLine.VatAmount;
+                        saleLine.ReturnReason = arow["REFUND_REASON"].ToString();
+                        saleLine.SalesMode = "RETOUR";
+
+                    }
+                    totSales += saleLine.LineValueGross;
+
+                    saleLine.Wac = getWacNZ(saleLine.SkuId, kasFiliale, kasDatum, isReturn, ersConnection);
+
+                }
+
+
+
+
+
+            }
+
+            if (arefund)
+            {
+                salesJson.FuturaSale.SaleType = "RETURN";
+            }
+
+            if (!itemExist)
+            {
+                salesJson.FuturaSale.SaleType = "LAYBY";
+            }
+
+            salesJson.FuturaSale.EmployeeId = sStaffno;
+            salesJson.FuturaSale.CashierId = sStaffno;
+            salesJson.FuturaSale.TransactionDate = transactionDate;
+            String ajsonStr = SimpleJson.SerializeObject(salesJson).ToString();
+            String md5Contents = Logging.CreateMD5(ajsonStr);
+
+            String storedMd5 = getMd5(kasDatum.ToString(), kasFiliale.ToString(), "1", kasKasse.ToString(), kasBonnr.ToString(), "SALENZ", Logging.strToInt64Def(dcSetup.SaleUpdate, 0),
+                ersConnection);
+
+            if (!md5Contents.Equals(storedMd5))
+            {
+                Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.Debug);
+                SendNewMessageQueue(SimpleJson.SerializeObject(salesJson).ToString(), dcSetup.SalesQueueName);
+            }
+            updateDaasExport(kasDatum.ToString(), kasFiliale.ToString(), "1", kasKasse.ToString(), kasBonnr.ToString(), "SALENZ", md5Contents, ersConnection);
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.SaleUpdateNZ = snow;
+
+
+        }
+
+
 
         private void populateDiscount(SqlConnection ersConnection)
         {
@@ -1929,6 +3382,23 @@ namespace PolitixDaas
             }
         }
 
+        private void populateDiscountNZ(SqlConnection ersConnection)
+        {
+            lstDiscountNZ.Clear();
+            String anSql = "select  Cast(PAG_NUMMER as varchar) as DISCOUNT, PAG_TEXT from PA_GRUND";
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        String akey = areader[0].ToString();
+                        String avalue = areader[1].ToString();
+                        lstDiscountNZ.Add(akey, avalue);
+                    }
+                }
+            }
+        }
 
         public void process()
         {
@@ -1940,6 +3410,14 @@ namespace PolitixDaas
                 return;
             }
 
+            SqlConnection ersConnectionNZ = null;
+            ersConnectionNZ = openERSNZSQLConnection();
+            if (ersConnectionNZ == null)
+            {
+                return;
+            }
+
+
             try
             {
                 if (!dcSetup.BlockSales)
@@ -1947,6 +3425,13 @@ namespace PolitixDaas
                     getSales(ersConnection);
                     salesSecondPass(ersConnection);
                 }
+
+                if (!dcSetup.BlockSalesNZ)
+                {
+                    getSalesNZ(ersConnectionNZ);
+                    salesSecondPassNZ(ersConnectionNZ);
+                }
+
 
                 if (!dcSetup.BlockProducts)
                 {
@@ -1958,9 +3443,20 @@ namespace PolitixDaas
                     getPrices_1(ersConnection);
                 }
 
+                if (!dcSetup.BlockPricesNZ)
+                {
+                    getPrices_1NZ(ersConnectionNZ);
+                }
+
+
                 if (!dcSetup.BlockPermanentMarkdowns)
                 {
                     getMarkdowns(ersConnection);
+                }
+
+                if (!dcSetup.BlockPermanentMarkdownsNZ)
+                {
+                    getMarkdownsNZ(ersConnection, ersConnectionNZ);
                 }
 
                 if (!dcSetup.BlockInventory)
@@ -1973,17 +3469,35 @@ namespace PolitixDaas
                     getInventoryAdjustments(ersConnection);
                 }
 
-                if(!dcSetup.BlockTransfersFromHO)
+                if (!dcSetup.BlockInventoryAdjustmentsNZ)
+                {
+                    getInventoryAdjustmentsNZ(ersConnectionNZ);
+                }
+
+
+                if (!dcSetup.BlockTransfersFromHO)
                 {
                     getRetailTransfers(ersConnection);
                 }
 
-                if(!dcSetup.BlockTransfersFromBranches)
+                if (!dcSetup.BlockTransfersFromHONZ)
+                {
+                    getRetailTransfersNZ(ersConnectionNZ);
+                }
+
+
+                if (!dcSetup.BlockTransfersFromBranches)
                 {
                     getTransfersFromBranches(ersConnection);
                 }
 
-                if(!dcSetup.BlockOrders)
+                if (!dcSetup.BlockTransfersFromBranchesNZ)
+                {
+                    getTransfersFromBranchesNZ(ersConnectionNZ);
+                }
+
+
+                if (!dcSetup.BlockOrders)
                 {
                     getPOs(ersConnection);
                 }
@@ -1992,6 +3506,12 @@ namespace PolitixDaas
                 {
                     getShipments(ersConnection);
                 }
+
+                if (!dcSetup.BlockShipmentsNZ)
+                {
+                    getShipmentsNZ(ersConnectionNZ);
+                }
+
 
                 ACounter++;
                 Logging.WriteDebug("ACounter: " + ACounter.ToString(), dcSetup.Debug);
@@ -2276,6 +3796,226 @@ namespace PolitixDaas
 
         }
 
+
+        private void getMarkdownsNZ(SqlConnection ersConnection, SqlConnection ersNZConnection)
+        {
+            Logging.WriteLog("Starting getMarkdownsNZ");
+            String lastUpdate = dcSetup.PermanentMarkdownNZUpdate;
+            if (lastUpdate.Length < 5)
+            {
+                lastUpdate = "20000101121223";
+
+
+                String delSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'MARKDOWN_NZ' ";
+                using (SqlCommand cmd = new SqlCommand(delSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            int dateFrom = dcSetup.MarkdownsNZFromDate;
+            int dateTo = dcSetup.MarkdownsNZToDate;
+
+            if (dateFrom != 0 || dateTo != 0)
+            {
+                String deleteSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'MARKDOWN_NZ' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(deleteSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -60 * 24).Substring(0, 8);
+            int mdownInitialDate = dcSetup.PermanentMarkDownsNZInitialDate;
+
+            String sTop = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                sTop = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String anSql = "  select distinct PDT_DATUM, PDT_NUMMER, PDT_WARENGR, PDT_ABTEILUNG, PDT_TYPE, PDT_GRPNUMMER, PDT_REFNUMMER, PAE_TEXT, PDT_NEUVKP_DATUM from PR_AEND " +
+                " join PR_ZEIL on PAE_MANDANT = PDT_MANDANT AND PAE_DATUM = PDT_DATUM AND PAE_NUMMER = PDT_NUMMER " +
+                " join PR_LIN on PLN_MANDANT = PAE_MANDANT  AND PAE_DATUM = PLN_DATUM AND PLN_NUMMER = PDT_NUMMER and PLN_PREISLINIE IN (-2, 11)  and PLN_NEUVKPREIS> 0.001 " +
+                //            " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 and PAE_DATUM >= " + sqlLastUpdate + " and PAE_DATUM >= " + mdownInitialDate + "    order by 1, 2 ";
+                " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 order by 1, 2 ";
+
+            Dictionary<string, Markdown> prAends = new Dictionary<string, Markdown>();
+            Dictionary<string, Markdown> prAendsEff = new Dictionary<string, Markdown>();
+
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        Markdown markdown = new Markdown();
+
+                        int pdtDatum = areader.GetInt32(0);
+                        int pdtNummer = Logging.strToIntDef(areader["PDT_NUMMER"].ToString(), 0);
+                        int pdtWareng = Logging.strToIntDef(areader["PDT_WARENGR"].ToString(), 0);
+                        int pdtAbte = Logging.strToIntDef(areader["PDT_ABTEILUNG"].ToString(), 0);
+                        int pdtType = Logging.strToIntDef(areader["PDT_TYPE"].ToString(), 0);
+                        int pdtGroupNo = Logging.strToIntDef(areader["PDT_GRPNUMMER"].ToString(), 0);
+                        int pdtRefNo = Logging.strToIntDef(areader["PDT_REFNUMMER"].ToString(), 0);
+                        int pdtEffectiveDate = Logging.strToIntDef(areader["PDT_NEUVKP_DATUM"].ToString(), 0);
+                        String paeText = areader.GetString(7);
+
+                        String aKey = pdtDatum.ToString() + "~" + pdtRefNo;
+                        String aKeyEff = pdtEffectiveDate.ToString() + "~" + pdtRefNo;
+                        if (pdtRefNo == 0)
+                        {
+                            aKey = pdtDatum.ToString() + "~" + pdtWareng + "~" + pdtAbte + "~" + pdtType + "~" + pdtGroupNo;
+                            aKeyEff = pdtEffectiveDate.ToString() + "~" + pdtWareng + "~" + pdtAbte + "~" + pdtType + "~" + pdtGroupNo;
+                        }
+
+                        markdown.PdtDatum = pdtDatum;
+                        markdown.PdtNummer = pdtNummer;
+                        markdown.PdtText = paeText;
+                        markdown.PdtEffectiveDate = pdtEffectiveDate;
+                        if (!prAends.ContainsKey(aKey))
+                        {
+                            prAends.Add(aKey, markdown);
+                        }
+
+                        if (!prAendsEff.ContainsKey(aKeyEff))
+                        {
+                            prAendsEff.Add(aKeyEff, markdown);
+                        }
+
+
+                    }
+
+                }
+            }
+
+            DateTime anow = DateTime.Now;
+            DateTime tnow = anow.AddDays(1); // added one day ...
+
+            String snow = tnow.ToString("yyyyMMdd");
+
+            String lastUpdateShort = lastUpdate.Substring(0, 8);
+
+            String mainSql = "select SAD_DATUM,SAI_WARENGR, SAI_ABTEILUNG, SAI_TYPE, SAI_GRPNUMMER, SAI_REFNUMMER, SAD_FILIALE,SAD_ZAHL,SAD_WERT, SAD_ID from STATADTA " +
+                " JOIN STATAIDX on SAD_ID = SAI_ID   " +
+                " JOIN FILIALEN on SAD_FILIALE = FIL_NUMMER " +
+                " where SAD_KENNUNG = 1 and ((SAD_DATUM >= " + mdownInitialDate + " and SAD_DATUM >= " +
+                Logging.FuturaDateTimeAddMins(lastUpdateShort + "060606", -48 * 60).Substring(0, 8) +
+                " and SAD_DATUM <= " + snow + ") OR ( SAD_DATUM >= " + dateFrom + " and SAD_DATUM <= " + dateTo + " ) ) " +
+                " and FIL_ARTTRANS_VK in (0, -2) " +
+                " order by SAD_DATUM, SAI_REFNUMMER, SAD_FILIALE";
+
+            Logging.WriteDebug(mainSql, dcSetup.Debug);
+
+            using (SqlCommand cmd = new SqlCommand(mainSql, ersNZConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                SqlDataReader areader = cmd.ExecuteReader();
+                while (areader.Read())
+                {
+                    String sadDatum = areader["SAD_DATUM"].ToString();
+                    String satWarenger = areader["SAI_WARENGR"].ToString();
+                    String satAbteilung = areader["SAI_ABTEILUNG"].ToString();
+                    String satGroupNo = areader["SAI_GRPNUMMER"].ToString();
+                    String satType = areader["SAI_TYPE"].ToString();
+                    String sku = areader["SAI_REFNUMMER"].ToString();
+                    String branch = areader["SAD_FILIALE"].ToString();
+                    double qty = Logging.strToDoubleDef(areader["SAD_ZAHL"].ToString(), 0);
+                    double value = Math.Truncate((Logging.strToDoubleDef(areader["SAD_WERT"].ToString(), 0) + 0.005) * 100) / 100.00;
+                    if (value < 0)
+                    {
+                        value = Math.Truncate((Logging.strToDoubleDef(areader["SAD_WERT"].ToString(), 0) - 0.005) * 100) / 100.00;
+                    }
+
+
+                    String keyDatum = Logging.FuturaDateTimeAddMins(sadDatum + "060606", -24 * 60).Substring(0, 8);
+
+                    String akey = keyDatum + "~" + sku;
+                    String akeyEff = sadDatum + "~" + sku;
+                    if (sku.Equals("0"))
+                    {
+                        akey = keyDatum + "~" + satWarenger + "~" + satAbteilung + "~" + satType + "~" + satGroupNo;
+                        akeyEff = sadDatum + "~" + satWarenger + "~" + satAbteilung + "~" + satType + "~" + satGroupNo;
+                    }
+
+
+
+
+                    MarkdownJson ajson = new MarkdownJson();
+                    ajson.PermanentMD = new PermanentMarkdown();
+                    ajson.PermanentMD.Branch = branch;
+                    ajson.PermanentMD.Date = sadDatum;
+                    ajson.PermanentMD.ID = sadDatum + "/0";
+                    ajson.PermanentMD.Description = "manual markdown";
+                    ajson.PermanentMD.SadId = areader["SAD_ID"].ToString();
+                    ajson.PermanentMD.EffectiveDate = sadDatum;
+                    Markdown amarkdown = null;
+                    // if (prAends.ContainsKey(akey))
+                    // {
+                    //     amarkdown = prAends[akey];
+                    // }
+                    // if(amarkdown != null)
+                    // {
+                    //     ajson.PermanentMD.Description = amarkdown.PdtText;
+                    //     ajson.PermanentMD.ID = amarkdown.PdtDatum.ToString() + "/" + amarkdown.PdtNummer;
+                    //     ajson.PermanentMD.EffectiveDate = amarkdown.PdtEffectiveDate.ToString();
+                    // }
+
+                    if (prAendsEff.ContainsKey(akeyEff))
+                    {
+                        amarkdown = prAendsEff[akeyEff];
+                    }
+                    if (amarkdown != null)
+                    {
+                        ajson.PermanentMD.Description = amarkdown.PdtText;
+                        ajson.PermanentMD.ID = amarkdown.PdtDatum.ToString() + "/" + amarkdown.PdtNummer;
+                        ajson.PermanentMD.EffectiveDate = amarkdown.PdtEffectiveDate.ToString();
+                    }
+
+                    ajson.PermanentMD.SubGroup = satAbteilung;
+                    ajson.PermanentMD.GroupNo = satGroupNo;
+                    ajson.PermanentMD.ProductGroup = satWarenger;
+                    ajson.PermanentMD.Qty = qty;
+                    ajson.PermanentMD.SKU = sku;
+                    ajson.PermanentMD.Value = value;
+
+
+                    String ajsonStr = SimpleJson.SerializeObject(ajson).ToString();
+                    String md5Contents = Logging.CreateMD5(ajsonStr);
+                    Logging.WriteDebug("MD5", dcSetup.Debug);
+                    String storedMd5 = getMd5(ajson.PermanentMD.Date, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
+                       ajson.PermanentMD.SKU, ajson.PermanentMD.Branch, "MARKDOWN_NZ", Logging.strToInt64Def(dcSetup.PermanentMarkdownNZUpdate, 0), ersConnection);
+                    Logging.WriteDebug("Store MD5", dcSetup.Debug);
+                    if (!md5Contents.Equals(storedMd5) || dcSetup.PermanentMarkdownNZUpdate.Equals(""))
+                    {
+                        Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(ajson).ToString(), dcSetup.Debug);
+                        SendNewMessageQueue(SimpleJson.SerializeObject(ajson).ToString(), dcSetup.PermanentMarkdownsQueueName);
+                        updateDaasExport(ajson.PermanentMD.Date, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
+                            ajson.PermanentMD.SKU, ajson.PermanentMD.Branch, "MARKDOWN_NZ", md5Contents, ersConnection);
+                    }
+
+
+
+                }
+            }
+
+            dcSetup.resetMarkdownsNZDateRange();
+
+
+            DateTime aanow = DateTime.Now;
+            String ssnow = aanow.ToString("yyyyMMddhhmmss");
+            dcSetup.PermanentMarkdownNZUpdate = ssnow;
+
+
+        }
+
         private void getMarkdowns(SqlConnection ersConnection)
         {
             Logging.WriteLog("Starting getMarkdowns");
@@ -2290,12 +4030,24 @@ namespace PolitixDaas
                 {
                     cmd.ExecuteNonQuery();
                 }
-             
-
-
-
 
             }
+
+            int dateFrom = dcSetup.MarkdownsFromDate;
+            int dateTo = dcSetup.MarkdownsToDate;
+
+            if (dateFrom != 0 || dateTo != 0)
+            {
+                String deleteSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'MARKDOWN' and DAAS_KEY1 >= @mindate and DAAS_KEY1 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(deleteSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
             String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -60 * 24).Substring(0, 8);
             int mdownInitialDate = dcSetup.PermanentMarkDownsInitialDate;
 
@@ -2308,7 +4060,8 @@ namespace PolitixDaas
             String anSql = "  select distinct PDT_DATUM, PDT_NUMMER, PDT_WARENGR, PDT_ABTEILUNG, PDT_TYPE, PDT_GRPNUMMER, PDT_REFNUMMER, PAE_TEXT, PDT_NEUVKP_DATUM from PR_AEND " +
                 " join PR_ZEIL on PAE_MANDANT = PDT_MANDANT AND PAE_DATUM = PDT_DATUM AND PAE_NUMMER = PDT_NUMMER " +
                 " join PR_LIN on PLN_MANDANT = PAE_MANDANT  AND PAE_DATUM = PLN_DATUM AND PLN_NUMMER = PDT_NUMMER and PLN_PREISLINIE IN (-2, 11)  and PLN_NEUVKPREIS> 0.001 " +
-                " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 and PAE_DATUM >= " + sqlLastUpdate + " and PAE_DATUM >= " + mdownInitialDate + "    order by 1, 2 ";
+    //            " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 and PAE_DATUM >= " + sqlLastUpdate + " and PAE_DATUM >= " + mdownInitialDate + "    order by 1, 2 ";
+                " where PAE_GEDRUCKT = 1 and PAE_MANDANT = 1 order by 1, 2 ";
 
             Dictionary<string, Markdown> prAends = new Dictionary<string, Markdown>();
             Dictionary<string, Markdown> prAendsEff = new Dictionary<string, Markdown>();
@@ -2317,6 +4070,7 @@ namespace PolitixDaas
 
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection) ) 
             {
+                cmd.CommandTimeout = 1200;
                 using (SqlDataReader areader = cmd.ExecuteReader())
                 {
                     while(areader.Read())
@@ -2362,17 +4116,18 @@ namespace PolitixDaas
             }
 
             DateTime anow = DateTime.Now;
+            DateTime tnow = anow.AddDays(1); // added one day ...
 
-            String snow = anow.ToString("yyyyMMdd");
+           String snow = tnow.ToString("yyyyMMdd");
 
             String lastUpdateShort = lastUpdate.Substring(0, 8);
 
             String mainSql = "select SAD_DATUM,SAI_WARENGR, SAI_ABTEILUNG, SAI_TYPE, SAI_GRPNUMMER, SAI_REFNUMMER, SAD_FILIALE,SAD_ZAHL,SAD_WERT, SAD_ID from STATADTA " +
                 " JOIN STATAIDX on SAD_ID = SAI_ID  and SAI_MANDANT = SAD_MANDANT " +
                 " JOIN FILIALEN on SAD_MANDANT = FIL_MANDANT and SAD_FILIALE = FIL_NUMMER " +
-                " where SAD_MANDANT = 1 and SAD_KENNUNG = 1 and SAD_DATUM >= " + lastUpdateShort + " and SAD_DATUM >= " +
-                Logging.FuturaDateTimeAddMins(mdownInitialDate + "060606", -48 * 60).Substring(0, 8) +
-                " and SAD_DATUM <= " + snow + 
+                " where SAD_MANDANT = 1 and SAD_KENNUNG = 1 and ((SAD_DATUM >= " + mdownInitialDate + " and SAD_DATUM >= " +
+                Logging.FuturaDateTimeAddMins(lastUpdateShort + "060606", -48 * 60).Substring(0, 8) +
+                " and SAD_DATUM <= " + snow + ") OR ( SAD_DATUM >= " + dateFrom + " and SAD_DATUM <= " + dateTo + " ) ) " +
                 " and FIL_ARTTRANS_VK in (0, -2) " +
                 " order by SAD_DATUM, SAI_REFNUMMER, SAD_FILIALE";
 
@@ -2380,6 +4135,7 @@ namespace PolitixDaas
 
             using (SqlCommand cmd = new SqlCommand(mainSql, ersConnection))
             {
+                cmd.CommandTimeout = 1200;
                 SqlDataReader areader = cmd.ExecuteReader();
                 while(areader.Read())
                 {
@@ -2453,21 +4209,24 @@ namespace PolitixDaas
                     String ajsonStr = SimpleJson.SerializeObject(ajson).ToString();
                     String md5Contents = Logging.CreateMD5(ajsonStr);
                     Logging.WriteDebug("MD5", dcSetup.Debug);
-                    String storedMd5 = getMd5(ajson.PermanentMD.Date + ajson.PermanentMD.Branch , ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
-                       ajson.PermanentMD.SKU, "1", "MARKDOWN", Logging.strToInt64Def(dcSetup.PermanentMarkdownUpdate, 0), ersConnection);
+                    String storedMd5 = getMd5(ajson.PermanentMD.Date, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
+                       ajson.PermanentMD.SKU, ajson.PermanentMD.Branch, "MARKDOWN", Logging.strToInt64Def(dcSetup.PermanentMarkdownUpdate, 0), ersConnection);
                     Logging.WriteDebug("Store MD5", dcSetup.Debug);
                     if (!md5Contents.Equals(storedMd5) || dcSetup.PermanentMarkdownUpdate.Equals(""))
                     {
                         Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(ajson).ToString(), dcSetup.Debug);
                         SendNewMessageQueue(SimpleJson.SerializeObject(ajson).ToString(), dcSetup.PermanentMarkdownsQueueName);
-                        updateDaasExport(ajson.PermanentMD.Date + ajson.PermanentMD.Branch, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
-                            ajson.PermanentMD.SKU, "1", "MARKDOWN", md5Contents, ersConnection);
+                        updateDaasExport(ajson.PermanentMD.Date, ajson.PermanentMD.ProductGroup, ajson.PermanentMD.GroupNo,
+                            ajson.PermanentMD.SKU, ajson.PermanentMD.Branch, "MARKDOWN", md5Contents, ersConnection);
                     }
 
 
 
                 }
             }
+
+            dcSetup.resetMarkdownsDateRange();
+
 
             DateTime aanow = DateTime.Now;
             String ssnow = aanow.ToString("yyyyMMddhhmmss");
@@ -2632,6 +4391,163 @@ namespace PolitixDaas
             dcSetup.PriceUpdate = snow;
 
         }
+
+        private void getPrices_1NZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getPricesNZ");
+            String lastUpdate = dcSetup.PriceNZUpdate;
+            String sqlLastUpdate = Logging.FuturaDateTimeAddMins(lastUpdate, -30);
+
+            String sTop = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                sTop = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            String anSql = "select " + sTop + " AGR_WARENGR [ProductGroup], AGR_ABTEILUNG[Subgroup], AGR_TYPE[Type],AGR_GRPNUMMER [GroupNumber], " +
+                " WAR_TEXT[ProductGroupDescription], ABT_TEXT[SubgroupDescription], WAT_TEXT[TypeDescription], AGR_TEXT [GroupNumberDescription] " +
+                " from V_ART_KOPF " +
+                " LEFT JOIN WARENGRP ON WAR_NUMMER = AGR_WARENGR " +
+                " LEFT JOIN  ABTEIL ON ABT_NUMMER = AGR_ABTEILUNG " +
+                " LEFT JOIN WARENTYP ON WAT_NUMMER = AGR_TYPE " +
+
+                " where cast(AGR_ULOG_DATE as varchar) + right('000000' + cast(AGR_ULOG_TIME AS VARCHAR), 6) >= '" + sqlLastUpdate + "'";
+
+            Logging.WriteDebug(anSql, dcSetup.Debug);
+            using (SqlCommand cmdMain = new SqlCommand(anSql, ersConnection))
+            {
+                using (SqlDataReader mainReader = cmdMain.ExecuteReader())
+                {
+                    while (mainReader.Read())
+                    {
+                        Logging.WriteDebug("Product", dcSetup.Debug);
+                        PriceRoots aroot = new PriceRoots();
+                        aroot.ProductPrice = new ProductPrices();
+                        aroot.ProductPrice.Item = new PricesItem();
+
+                        Logging.WriteDebug("Groupy", dcSetup.Debug);
+
+                        aroot.ProductPrice.Item.GroupNumber = Convert.ToInt32(mainReader["GroupNumber"]);
+                        aroot.ProductPrice.Item.ProductGroup = Convert.ToInt32(mainReader["ProductGroup"]);
+                        aroot.ProductPrice.Item.Subgroup = Convert.ToInt32(mainReader["Subgroup"]);
+                        aroot.ProductPrice.Item.Type = Convert.ToInt32(mainReader["Type"]);
+                        aroot.ProductPrice.Item.Skus = new List<PricesSku>();
+                        //  aroot.ProductPrice.Item.GroupNumberDescription = mainReader["GroupNumberDescription"].ToString();
+                        //  aroot.ProductPrice.Item.ProductGroupDescription = mainReader["ProductGroupDescription"].ToString();
+                        //  aroot.ProductPrice.Item.TypeDescription = mainReader["TypeDescription"].ToString();
+                        //  aroot.ProductPrice.Item.SubgroupDescription = mainReader["SubgroupDescription"].ToString();
+
+                        String skuSql = "select ART_REFNUMMER[SkuId], ART_MAXRABATT[MaximumDiscount], ART_KEIN_RABATT[FixedPrice], ART_EK_DM [PurchasePrice], " +
+                            " ART_EKWAEHRUNG[Currency], ART_VKPREIS[RT_Price], ART_GHPREIS [WS_Price], " +
+                            " case " +
+                            "   when ART_SET_EKGEW_MODE<> 0 then ART_EK_GEWICHTET " +
+                            "   else ART_EK_DM " +
+                            " end[WeightedAverageCost] " +
+                            " from V_ARTIKEL " +
+                            " where ART_WARENGR = @ART_WARENGR AND ART_ABTEILUNG = @ART_ABTEILUNG AND ART_TYPE = @ART_TYPE AND ART_GRPNUMMER = @ART_GRPNUMMER";
+
+                        using (SqlCommand cmd = new SqlCommand(skuSql, ersConnection))
+                        {
+                            cmd.Parameters.AddWithValue("@ART_WARENGR", aroot.ProductPrice.Item.ProductGroup);
+                            cmd.Parameters.AddWithValue("@ART_ABTEILUNG", aroot.ProductPrice.Item.Subgroup);
+                            cmd.Parameters.AddWithValue("@ART_TYPE", aroot.ProductPrice.Item.Type);
+                            cmd.Parameters.AddWithValue("@ART_GRPNUMMER", aroot.ProductPrice.Item.GroupNumber);
+                            using (SqlDataReader areader = cmd.ExecuteReader())
+                            {
+                                while (areader.Read())
+                                {
+                                    Logging.WriteDebug("sku", dcSetup.Debug);
+                                    PricesSku anSku = new PricesSku();
+                                    aroot.ProductPrice.Item.Skus.Add(anSku);
+                                    anSku.SkuId = Logging.strToIntDef(areader["SkuId"].ToString(), 0);
+                                    Logging.WriteLog("sku " + anSku.SkuId);
+                                    anSku.RT_Price = Logging.strToDoubleDef(areader["RT_Price"].ToString(), 0);
+                                    anSku.WS_Price = Logging.strToDoubleDef(areader["WS_Price"].ToString(), 0);
+                                    anSku.Currency = areader["Currency"].ToString();
+                                    anSku.PP_Price = Logging.strToDoubleDef(areader["PurchasePrice"].ToString(), 0);
+                                    anSku.WeightedAverageCost = Logging.strToDoubleDef(areader["WeightedAverageCost"].ToString(), 0);
+
+                                    String priceSql = "select   APR_PREISLINIE, APR_VKPREIS, iSnULL(AAP_DATUM, APR_VKP_DATUM) [APR_VKP_DATUM] from V_ART_PRGR " +
+                                        " LEFT JOIN V_ART_PHST ON AAP_REFNUMMER = APR_REFNUMMER AND AAP_PREISLINIE = APR_PREISLINIE AND APR_VKPREIS = AAP_ALTPREIS " +
+                                        " WHERE APR_REFNUMMER = @APR_REFNUMMERY ";
+                                    anSku.Prices = new List<PricePerCode>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(priceSql, ersConnection))
+                                    {
+                                        Logging.WriteDebug("Price1", dcSetup.Debug);
+                                        pricesCmd.Parameters.AddWithValue("@APR_REFNUMMERY", anSku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                PricePerCode aprice = new PricePerCode();
+                                                anSku.Prices.Add(aprice);
+                                                aprice.PriceCode = priceReader.GetInt16(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.Date = priceReader.GetInt32(2);
+                                            }
+                                        }
+                                    }
+
+                                    String price9Sql = "SELECT  KRF_FILIALE, KRF_VKPREIS, KRF_FILIAL_PREIS, KRF_MAXRABATT FROM V_KASSREF WHERE KRF_REFNUMMER = @KRF_REFNUMMER ";
+                                    anSku.PricesPerBranch = new List<PricePerBranch>();
+                                    using (SqlCommand pricesCmd = new SqlCommand(price9Sql, ersConnection))
+                                    {
+                                        pricesCmd.Parameters.AddWithValue("@KRF_REFNUMMER", anSku.SkuId);
+                                        using (SqlDataReader priceReader = pricesCmd.ExecuteReader())
+                                        {
+                                            while (priceReader.Read())
+                                            {
+                                                Logging.WriteDebug("Price2", dcSetup.Debug);
+                                                PricePerBranch aprice = new PricePerBranch();
+                                                anSku.PricesPerBranch.Add(aprice);
+                                                aprice.BranchNo = priceReader.GetInt32(0);
+                                                aprice.Price = Logging.strToDoubleDef(priceReader[1].ToString(), 0);
+                                                aprice.BranchPrice = Logging.strToDoubleDef(priceReader[2].ToString(), 0);
+                                                //aprice.MaxDiscount = Logging.strToDoubleDef(priceReader[3].ToString(), 0);
+                                            }
+                                        }
+                                    }
+
+                                }
+
+                            }
+
+
+                        }
+
+                        if (aroot.ProductPrice.Item.Skus.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        Logging.WriteDebug("Finishing price", dcSetup.Debug);
+                        String ajsonStr = SimpleJson.SerializeObject(aroot).ToString();
+                        //  String md5Contents = Logging.CreateMD5(ajsonStr);
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+                        Logging.WriteDebug("MD5", dcSetup.Debug);
+                        String storedMd5 = getMd5(aroot.ProductPrice.Item.ProductGroup.ToString(), aroot.ProductPrice.Item.Subgroup.ToString(), aroot.ProductPrice.Item.Type.ToString(),
+                           aroot.ProductPrice.Item.GroupNumber.ToString(), "1", "PRICENZ", Logging.strToInt64Def(dcSetup.PriceUpdate, 0), ersConnection);
+                        Logging.WriteDebug("Store MD5", dcSetup.Debug);
+                        if (!md5Contents.Equals(storedMd5) || dcSetup.PriceUpdate.Equals(""))
+                        {
+                            SendNewMessageQueue(SimpleJson.SerializeObject(aroot).ToString(), dcSetup.PricesQueueName);
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(aroot).ToString(), dcSetup.Debug);
+                            updateDaasExport(aroot.ProductPrice.Item.ProductGroup.ToString(), aroot.ProductPrice.Item.Subgroup.ToString(), aroot.ProductPrice.Item.Type.ToString(),
+                                aroot.ProductPrice.Item.GroupNumber.ToString(), "1", "PRICENZ", md5Contents, ersConnection);
+                        }
+
+
+
+
+                    }
+                }
+            }
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.PriceNZUpdate = snow;
+
+        }
+
 
         private void getPrices(SqlConnection ersConnection)
         {
@@ -3334,6 +5250,96 @@ namespace PolitixDaas
             }
 
             if(lagerValid)
+            {
+                return lager_wac;
+            }
+
+            if (artValid)
+            {
+                return artWac;
+            }
+            return 0;
+        }
+
+
+        private double getWacNZ(int refNo, int branchNo, int kasDate, bool isReturn, SqlConnection aconnection)
+        {
+            if (refNo == 0)
+            {
+                return 0;
+            }
+            double lager_wac = 0;
+            bool lagerValid = false;
+
+            double wac = 0;
+
+            String lagerSql = "select LAG_EK_GEW_VALID, LAG_EK_GEWICHTET from V_LAGER WHERE LAG_REFNUMMER = " + refNo + " AND  LAG_FILIALE = " + branchNo;
+            using (SqlCommand cmd = new SqlCommand(lagerSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        int gemvalis = Logging.strToIntDef(areader["LAG_EK_GEW_VALID"].ToString(), 0);
+                        lagerValid = gemvalis != 0;
+                        if (lagerValid)
+                        {
+                            lager_wac = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
+                        }
+                    }
+                }
+            }
+
+            double artWac = 0;
+            bool artValid = false;
+            String artSql = "select  ART_EK_GEW_VALID, ART_EK_GEWICHTET from V_ARTIKEL WHERE ART_REFNUMMER = " + refNo;
+            using (SqlCommand cmd = new SqlCommand(artSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        int arty = Logging.strToIntDef(areader["ART_EK_GEW_VALID"].ToString(), 0);
+                        artValid = arty != 0;
+                        if (artValid)
+                        {
+                            artWac = Logging.strToDoubleDef(areader["ART_EK_GEWICHTET"].ToString(), 0);
+                        }
+                    }
+                }
+            }
+
+            int kennumb = 6;
+            if (isReturn)
+            {
+                kennumb = 7;
+            }
+
+            double statWac = 0;
+            bool statValid = false;
+            String statSql = "select SAD_DATUM, SAD_EKWERT / SAD_ZAHL [WAC],  SAD_KENNUNG from STATADTA " +
+                " JOIN STATAIDX ON SAD_ID = SAI_ID " +
+                " WHERE SAD_DATUM > " + kasDate + "  AND SAD_KENNUNG = " + kennumb + " AND SAI_REFNUMMER = " + refNo + " and SAD_ZAHL > 1 AND SAD_FILIALE = " + branchNo + " AND SAD_ZAHL<> 0 " +
+                " order by 1 ";
+
+            using (SqlCommand cmd = new SqlCommand(statSql, aconnection))
+            {
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    if (areader.Read())
+                    {
+                        statWac = Logging.strToDoubleDef(areader["WAC"].ToString(), 0);
+                        statValid = true;
+                    }
+                }
+            }
+
+            if (statValid)
+            {
+                return statWac;
+            }
+
+            if (lagerValid)
             {
                 return lager_wac;
             }

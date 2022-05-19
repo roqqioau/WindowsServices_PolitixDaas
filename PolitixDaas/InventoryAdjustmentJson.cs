@@ -25,7 +25,9 @@ namespace PolitixDaas
         public double RetailPrice { get; set; }
         public int AdjustmentReasonId { get; set; }
         public String AdjustmentReason { get; set; }
+        public String AdjustmentText { get; set; }
         public int EmployeeId { get; set; }
+        public int GroupNo { get; set; }
 
 
     }
