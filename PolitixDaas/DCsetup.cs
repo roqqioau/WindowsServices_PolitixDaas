@@ -79,7 +79,7 @@ namespace PolitixDaas
 
         public int InventoryAdjustmentNZFromDate { get; set; }
         public int InventoryAdjustmentNZToDate { get; set; }
-
+        public int InventoryBranch { get; set; }
         public int ResultSet { get; private set; }
         public int LocationModule { get; private set; }
         public int DateFrom { get; set; }
@@ -231,7 +231,7 @@ namespace PolitixDaas
         {
             String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
             RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
-            anIni.writeString("System", "TransfersFromHONZUpdate", value);
+            anIni.writeString("System", "TransfersFromHOUpdate", value);
         }
 
 
@@ -655,6 +655,7 @@ namespace PolitixDaas
             InventoryAdjustmentToDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentToDate", 0);
 
             InventoryAdjustmentNZFromDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentNZFromDate", 0);
+            InventoryBranch = anIni.readInteger("SYSTEM", "InventoryBranch", 0);
             InventoryAdjustmentNZToDate = anIni.readInteger("SYSTEM", "InventoryAdjustmentNZToDate", 0);
             OrdersFromDate = anIni.readInteger("SYSTEM", "OrdersFromDate", 0);
             OrdersToDate = anIni.readInteger("SYSTEM", "OrdersToDate", 0);

@@ -1015,11 +1015,22 @@ namespace PolitixDaas
                 "   else '' " +
                 " end[FTK_TYP], " +
                 " (select isnull(max(KAS_VK_DATUM), 0) from KASSTRNS where KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
-                " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE] " +
-                " from V_FTR_KOPF " +
+                " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE], " +
+                " CASE " +
+                " WHEN FTK_STATUS = 2 THEN FTK_LIEFERDATUM " +
+                " WHEN FTK_STATUS = 4 THEN ISNULL((SELECT A.FTK_LIEFERDATUM FROM V_FTR_KOPF A WHERE A.FTK_FILIALE = B.FTK_REF_FILIALE AND A.FTK_KASSE = B.FTK_REF_KASSE AND A.FTK_NUMMER = B.FTK_REF_NUMMER ), FTK_LIEFERDATUM) " +
+                " ELSE FTK_CLOG_DATE " +
+                " END[REAL_CREATI0N_DATE], " +
+                " CASE " +
+                " WHEN FTK_STATUS = 2 THEN FTK_BUCH_DATUM " +
+                " WHEN FTK_STATUS = 4 THEN ISNULL((SELECT A.FTK_BUCH_DATUM FROM V_FTR_KOPF A WHERE A.FTK_FILIALE = B.FTK_REF_FILIALE AND A.FTK_KASSE = B.FTK_REF_KASSE AND A.FTK_NUMMER = B.FTK_REF_NUMMER), FTK_LIEFERDATUM) " +
+                " ELSE FTK_CLOG_DATE " +
+                " END[DESPATCH_DATE] " +
+                " from V_FTR_KOPF B " +
                 " where FTK_TYP in (4, 2, 6) and FTK_AN_TYP = 2 AND FTK_FILIALE <> 1 " +
                 " and(FTK_VON_NUMMER > 200 or FTK_AN_NUMMER > 200) AND((FTK_LIEFERDATUM >= " + initialdate + " and FTK_LIEFERDATUM >= " + iLastUpdate +
-                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " )) ";
+                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " ) " +
+                " or (FTK_LIEFERDATUM >=  " + dateFrom + " and FTK_LIEFERDATUM <= " + dateTo + " )) ";
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
 
@@ -1059,8 +1070,12 @@ namespace PolitixDaas
                         aheader.ToStore = Convert.ToInt32(areader["TO_BRANCH"]);
                         aheader.Type = areader["FTK_TYP"].ToString();
                         aheader.Details = new List<TransferBDetails>();
-                        aheader.CreationDate = Convert.ToInt32(areader["CREATION_DATE"]);
-                        aheader.DespatchDate = Convert.ToInt32(areader["DELIVERY_DATE"]);
+                        aheader.CreationDate = Convert.ToInt32(areader["REAL_CREATI0N_DATE"]);
+                        aheader.DespatchDate = Convert.ToInt32(areader["DESPATCH_DATE"]);
+                        if (aheader.CreationDate == 0)
+                        {
+                            aheader.CreationDate = aheader.DespatchDate;
+                        }
                         aheader.AcknowledgeDate = Convert.ToInt32(areader["FTK_ACK_DATE"]);
                         aheader.DeliveryNoteNumber = delNo;
                         aheader.DeliveryNote = areader["DELIVERY_NOTE"].ToString();
@@ -1097,7 +1112,7 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(afiliale.ToString(), akasse.ToString(),
-                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_BNZ", Logging.strToInt64Def(dcSetup.TransfersFromHONZUpdate, 0), ersConnection);
+                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_BNZ", Logging.strToInt64Def(dcSetup.TransfersFromBranchesNZUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5) && ((ftkTyp != 2) || (ftkTyp == 2 && aheader.Details.Count > 0)))
                         {
@@ -1171,11 +1186,22 @@ namespace PolitixDaas
                 "   else '' " +
                 " end[FTK_TYP], " +
                 " (select isnull(max(KAS_VK_DATUM), 0) from KASSTRNS where KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
-                " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE] " +
-                " from V_FTR_KOPF " +
+                " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE], " +
+                " CASE " +
+                " WHEN FTK_STATUS = 2 THEN FTK_LIEFERDATUM " +
+                " WHEN FTK_STATUS = 4 THEN ISNULL((SELECT A.FTK_LIEFERDATUM FROM V_FTR_KOPF A WHERE A.FTK_FILIALE = B.FTK_REF_FILIALE AND A.FTK_KASSE = B.FTK_REF_KASSE AND A.FTK_NUMMER = B.FTK_REF_NUMMER AND A.FTK_MANDANT = 1), FTK_LIEFERDATUM) " +
+                " ELSE FTK_CLOG_DATE " +
+                " END[REAL_CREATI0N_DATE], " +
+                " CASE " +
+                " WHEN FTK_STATUS = 2 THEN FTK_BUCH_DATUM " +
+                " WHEN FTK_STATUS = 4 THEN ISNULL((SELECT A.FTK_BUCH_DATUM FROM V_FTR_KOPF A WHERE A.FTK_FILIALE = B.FTK_REF_FILIALE AND A.FTK_KASSE = B.FTK_REF_KASSE AND A.FTK_NUMMER = B.FTK_REF_NUMMER AND A.FTK_MANDANT = 1), FTK_LIEFERDATUM) " +
+                " ELSE FTK_CLOG_DATE " +
+                " END[DESPATCH_DATE] " +
+                " from V_FTR_KOPF B " +
                 " where FTK_MANDANT = 1 AND FTK_TYP in (4, 2, 6) and FTK_AN_TYP = 2 AND FTK_FILIALE <> 1 " +
                 " and(FTK_VON_NUMMER > 200 or FTK_AN_NUMMER > 200) AND((FTK_LIEFERDATUM >= " + initialdate + " and FTK_LIEFERDATUM >= " + iLastUpdate +
-                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " )) ";
+                " ) or(FTK_CLOG_DATE >=  " + initialdate + " and FTK_CLOG_DATE >= " + iLastUpdate + " ) or(FTK_CLOG_DATE > 0 and  FTK_CLOG_DATE >=  " + dateFrom + " and FTK_CLOG_DATE <= " + dateTo + " ) " +
+                " OR (FTK_LIEFERDATUM >=  " + dateFrom + " and FTK_LIEFERDATUM <= " + dateTo + " ) ) ";
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
 
@@ -1215,8 +1241,12 @@ namespace PolitixDaas
                         aheader.ToStore = Convert.ToInt32(areader["TO_BRANCH"]);
                         aheader.Type = areader["FTK_TYP"].ToString();
                         aheader.Details = new List<TransferBDetails>();
-                        aheader.CreationDate = Convert.ToInt32(areader["CREATION_DATE"]);
-                        aheader.DespatchDate = Convert.ToInt32(areader["DELIVERY_DATE"]);
+                        aheader.CreationDate = Convert.ToInt32(areader["REAL_CREATI0N_DATE"]);
+                        aheader.DespatchDate = Convert.ToInt32(areader["DESPATCH_DATE"]);
+                        if (aheader.CreationDate == 0)
+                        {
+                            aheader.CreationDate = aheader.DespatchDate;
+                        }
                         aheader.AcknowledgeDate = Convert.ToInt32(areader["FTK_ACK_DATE"]);
                         aheader.DeliveryNoteNumber = delNo;
                         aheader.DeliveryNote = areader["DELIVERY_NOTE"].ToString();
@@ -1253,7 +1283,7 @@ namespace PolitixDaas
 
 
                         String storedMd5 = getMd5(afiliale.ToString(), akasse.ToString(),
-                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_B", Logging.strToInt64Def(dcSetup.TransfersFromHOUpdate, 0), ersConnection);
+                            tnumber.ToString(), areader["CREATION_DATE"].ToString(), "1", "TRANSFERS_B", Logging.strToInt64Def(dcSetup.TransfersFromBranchesUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5) && ((ftkTyp != 2) || (ftkTyp == 2 && aheader.Details.Count > 0)))
                         {
@@ -1800,8 +1830,14 @@ namespace PolitixDaas
 
             String anSql = "SELECT FTK_AN_NUMMER, FTR_REFNUMMER,  max(FTK_LIEFERDATUM) [FTK_LIEFERDATUM] , sum(FTR_ANZAHL) [FTR_ANZAHL]  FROM FTR_KOPF " +
                 " JOIN FTR_DATA ON FTR_MANDANT = 1 AND FTR_FILIALE = FTK_FILIALE AND FTR_KASSE = FTK_KASSE AND FTK_NUMMER = FTR_NUMMER " +
-                " WHERE FTK_TYP = 2 AND FTK_MANDANT = 1 and FTR_ANZAHL <> 0 and FTR_REFNUMMER <> 0 " +
-                " group by FTK_AN_NUMMER, FTR_REFNUMMER " + 
+                " WHERE FTK_TYP = 2 AND FTK_MANDANT = 1 and FTR_ANZAHL <> 0 and FTR_REFNUMMER <> 0 ";
+
+            if(dcSetup.InventoryBranch != 0)
+            {
+                anSql = anSql + " and FTK_AN_NUMMER = " + dcSetup.InventoryBranch; 
+            }
+
+            anSql = anSql + " group by FTK_AN_NUMMER, FTR_REFNUMMER " + 
                 " ORDER BY 1, 2, 3 ";
             using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
             {
@@ -1872,6 +1908,11 @@ namespace PolitixDaas
                 " LEFT JOIN (SELECT LGD_REFNUMMER, LGD_FILIALE, SUM(LGD_DELTA)[LGD_DELTA] FROM  V_LAGDELTA WHERE LGD_MANDANT = 1 AND LGD_TYP <> 2 GROUP BY  LGD_REFNUMMER, LGD_FILIALE)TBL " + 
                 "    ON LGD_REFNUMMER = LAG_REFNUMMER AND LGD_FILIALE = LAG_FILIALE " + 
                 " WHERE LAG_MANDANT = 1 "; 
+
+            if(dcSetup.InventoryBranch != 0)
+            {
+                anSql = anSql + " and LAG_FILIALE = " + dcSetup.InventoryBranch;
+            }
 
             if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
             {
@@ -2177,7 +2218,8 @@ namespace PolitixDaas
 
             String anSql = "SELECT " + top10 + " DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4, DAAS_KEY5 " +
                 " FROM " + DaasExportTable  +
-                " where DAAS_SET_NAME = 'SALE' AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)  ) < " + dayDiff +
+                " where DAAS_SET_NAME = 'SALE' AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) < " + dayDiff * 2 +
+                " AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)) <= 2 " +
                 " AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) > " + dayDiff;
             Logging.WriteDebug("salesSecondPass Sql: ", dcSetup.Debug);
             Logging.WriteDebug(anSql, dcSetup.Debug);
@@ -2222,8 +2264,11 @@ namespace PolitixDaas
 
             String anSql = "SELECT " + top10 + " DAAS_KEY1, DAAS_KEY2, DAAS_KEY3, DAAS_KEY4  " +
                 " FROM " + DaasExportTable +
-                " where DAAS_SET_NAME = 'SALENZ' AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)  ) < " + dayDiff +
+                " where DAAS_SET_NAME = 'SALENZ' AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) < " + dayDiff * 2 +
+                " AND datediff(DAY, convert(DATETIME, DAAS_KEY1, 112), convert(DATETIME, SUBSTRING(CAST(DAAS_UPDATE_TIME AS VARCHAR), 1, 8), 112)) <= 2 " +
                 " AND DATEDIFF(DAY, convert(DATETIME, DAAS_KEY1, 112), GETDATE()) > " + dayDiff;
+
+
             Logging.WriteDebug("salesSecondPass Sql: ", dcSetup.Debug);
             Logging.WriteDebug(anSql, dcSetup.Debug);
 
@@ -2425,7 +2470,7 @@ namespace PolitixDaas
 
             }
 
-            String sqlstr = "select distinct " + top10 + " K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX],  " +
+            String sqlstr = "select distinct " + top10 + " K.KAS_DATUM, K.KAS_FILIALE, K.KAS_KASSE, K.KAS_BONNR, KAS_BERICHT, IsNull(F.FIL_INDEX, '') [FIL_INDEX],   " +
                 " IsNull(KAS_ZEIT, 0) [KAS_ZEIT], isNull(ZZO_STD_NAME, '') [ZZO_STD_NAME]  " +
                 " from V_KASIDLTA K  " +
                 " left join V_FILIALEN F on K.KAS_FILIALE = F.FIL_NUMMER  " +
@@ -2836,7 +2881,8 @@ namespace PolitixDaas
                     double anamountExTaxAbs = anamountAbs;
                     if (atax != 0)
                     {
-                        anamountExTaxAbs = anamountAbs / (1 + (1 / atax));
+                      //  anamountExTaxAbs = anamountAbs / (1 + (1 / atax));
+                        anamountExTaxAbs = anamountAbs / (1 + (atax / 100));
                     }
 
                     if (anamount < 0)
@@ -3263,7 +3309,8 @@ namespace PolitixDaas
                     double anamountExTaxAbs = anamountAbs;
                     if (atax != 0)
                     {
-                        anamountExTaxAbs = anamountAbs / (1 + (1 / atax));
+                       // anamountExTaxAbs = anamountAbs / (1 + (1 / atax));
+                        anamountExTaxAbs = anamountAbs / (1 + (atax / 100));
                     }
 
                     if (anamount < 0)
@@ -5178,6 +5225,13 @@ namespace PolitixDaas
             {
                 return 0;
             }
+
+
+            if (refNo == 291422)
+            {
+                Logging.WriteLog("here");
+            }
+
             double lager_wac = 0;
             bool lagerValid = false;
 
@@ -5195,6 +5249,7 @@ namespace PolitixDaas
                         if(lagerValid)
                         {
                             lager_wac = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
+                            lagerValid = lager_wac > 0;
                         }
                     }
                 }
@@ -5239,10 +5294,12 @@ namespace PolitixDaas
                     if (areader.Read())
                     {
                         statWac = Logging.strToDoubleDef(areader["WAC"].ToString(), 0);
-                        statValid = true;
+                        statValid = statWac > 0;
                     }
                 }
             }
+
+
 
             if(statValid)
             {
@@ -5285,6 +5342,7 @@ namespace PolitixDaas
                         if (lagerValid)
                         {
                             lager_wac = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
+                            lagerValid = lager_wac > 0;
                         }
                     }
                 }
@@ -5329,7 +5387,7 @@ namespace PolitixDaas
                     if (areader.Read())
                     {
                         statWac = Logging.strToDoubleDef(areader["WAC"].ToString(), 0);
-                        statValid = true;
+                        statValid = statWac > 0;
                     }
                 }
             }
