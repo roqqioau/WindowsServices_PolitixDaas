@@ -677,14 +677,14 @@ namespace PolitixDaas
                         String md5Contents = Logging.CreateMD5(ajsonStr);
 
 
-                        String storedMd5 = getMd5(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
-                            "1", "1", "1", "SHIPMENT", Logging.strToInt64Def(dcSetup.ShipmentsUpdate, 0), ersConnection);
+                        String storedMd5 = getMd5(areader["WEH_DATUM"].ToString(), areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
+                            "1", "1", "SHIPMENT", Logging.strToInt64Def(dcSetup.ShipmentsUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5))
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.Debug);
                             SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.ShipmentsQueueName);
-                            updateDaasExport(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "1", "SHIPMENT", md5Contents, ersConnection);
+                            updateDaasExport(areader["WEH_DATUM"].ToString(), areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "SHIPMENT", md5Contents, ersConnection);
                         }
 
 
@@ -795,14 +795,14 @@ namespace PolitixDaas
                         String md5Contents = Logging.CreateMD5(ajsonStr);
 
 
-                        String storedMd5 = getMd5(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
-                            "1", "1", "1", "SHIPMENTNZ", Logging.strToInt64Def(dcSetup.ShipmentsNZUpdate, 0), ersConnection);
+                        String storedMd5 = getMd5(areader["WEH_DATUM"].ToString(), areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(),
+                             "1", "1", "SHIPMENTNZ", Logging.strToInt64Def(dcSetup.ShipmentsNZUpdate, 0), ersConnection);
 
                         if (!md5Contents.Equals(storedMd5))
                         {
                             Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.Debug);
                             SendNewMessageQueue(SimpleJson.SerializeObject(shipmentJson).ToString(), dcSetup.ShipmentsQueueName);
-                            updateDaasExport(areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "1", "SHIPMENTNZ", md5Contents, ersConnection);
+                            updateDaasExport(areader["WEH_DATUM"].ToString(),  areader["WEH_ORIG"].ToString(), areader["WEH_EINGANG"].ToString(), "1", "1", "SHIPMENTNZ", md5Contents, ersConnection);
                         }
 
 
@@ -1301,6 +1301,342 @@ namespace PolitixDaas
             String snow = anow.ToString("yyyyMMddhhmmss");
             dcSetup.TransfersFromBranchesUpdate = snow;
             dcSetup.resetTransfersFromBranchesRange();
+
+
+        }
+
+        private void getSalesOnLineNZ(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getSalesOnLineNZ");
+            String lastUpdate = dcSetup.SaleOnLineNZUpdate;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALESOL' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.SalesOnLineNZInitialDate;
+
+            int dateFrom = dcSetup.SalesOnLineNZFromDate;
+            int dateTo = dcSetup.SalesOnLineNZToDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALESOL' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String anSql = "select " + top10 + " LFS_ORIGNR, LFS_ANG_ANR, LFS_LFS, cast(LFS_ORIGNR as varchar) + '-' +  cast(LFS_ANG_ANR as varchar) + '-' + cast(LFS_LFS as varchar) [TRANSFER_NO], " +
+                " LFS_VONNR[FROM_STORE], LFS_KNR[TO_STORE], LFS_CLOG_DATE, LFS_DATLFS, LFS_ULOG_DATE, " +
+                " case  " +
+                "   when LFS_STATUS = 0 then 'Standard delivery note' " +
+                "   when LFS_STATUS = 1 then 'Delivery note being delivered' " +
+                "   when LFS_STATUS = 2 then 'Delivery note was delivered' " +
+                "   when LFS_STATUS = 3 then 'Delivery note back from delivery (branch)' " +
+                "   else '' " +
+                " end[LFS_STATUS_T], LFS_TEXT, LFS_STATUS " +
+                " FROM V_LIEFHEAD " +
+                " where  LFS_TEXT LIKE '%ODO_%' and LFS_TEXT LIKE 'ODS_%' and " +
+                //" LFS_KTYP = 6 AND LFS_STATUS = 2 and " + 
+                " ((LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate + ") or (LFS_CLOG_DATE >= " + iLastUpdate + " and LFS_CLOG_DATE >= " + initialdate + ") or (LFS_ULOG_DATE > 0 and LFS_ULOG_DATE >= " + dateFrom + " and LFS_ULOG_DATE <= " + dateTo + "  )  )";
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        SalesOLJson transferJson = new SalesOLJson();
+                        SalesOLHeader transfer = new SalesOLHeader();
+                        transferJson.SalesOnLineHeader = transfer;
+
+                        String atext = areader["LFS_TEXT"].ToString();
+
+                        String[] theFields = atext.Split('|');
+                        String odShipment = "";
+                        String odOrder = "";
+                        String odExternalOrder = "";
+
+                        try
+                        {
+                            odShipment = theFields[0].Substring(4);
+                        }
+                        catch { }
+                        try
+                        {
+                            odOrder = theFields[1].Substring(4);
+                        }
+                        catch { }
+                        try
+                        {
+                            odExternalOrder = theFields[2].Substring(4);
+                        }
+                        catch { }
+
+                        transfer.ODShipmentId = odShipment;
+                        transfer.ODOrderId = odOrder;
+                        transfer.ODExternalOrderId = odExternalOrder;
+
+                        transfer.CreationDate = Convert.ToInt32(areader["LFS_CLOG_DATE"]);
+                        transfer.DespatchDate = Convert.ToInt32(areader["LFS_DATLFS"]);
+                        transfer.FromStore = Convert.ToInt32(areader["FROM_STORE"]);
+                        transfer.ToStore = Convert.ToInt32(areader["TO_STORE"]);
+                        transfer.TrasferNo = areader["TRANSFER_NO"].ToString();
+                        transfer.Details = new List<SalesOLDetails>();
+                        transfer.Status_Id = Logging.strToIntDef(areader["LFS_STATUS"].ToString(), 0);
+                        transfer.Status = areader["LFS_STATUS_T"].ToString();
+
+                        int origin = Convert.ToInt32(areader["LFS_ORIGNR"]);
+                        int andAnr = Convert.ToInt32(areader["LFS_ANG_ANR"]);
+                        int lfs = Convert.ToInt32(areader["LFS_LFS"]);
+
+                        String trSql = "select  LZL_ZNR, LZL_REFNR[SKU_ID], LZL_MENGE [QTY] , " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_EKDM = 0 THEN LZL_EEK " +
+                            "   ELSE LZL_STAT_EKDM " +
+                            " END[COST], " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_VKDM = 0 THEN LZL_EVKB " +
+                            "   ELSE LZL_STAT_VKDM " +
+                            " END[RT_PRICE] " +
+                            " from LIEFZEIL " +
+                            " where   LZL_REFNR <> 0  AND LZL_ORIGNR = @LZL_ORIGNR AND LZL_ANG_ANR = @LZL_ANG_ANR AND LZL_LFS = @LZL_LFS ";
+                        using (SqlCommand trCmd = new SqlCommand(trSql, ersConnection))
+                        {
+                            trCmd.Parameters.AddWithValue("@LZL_ORIGNR", origin);
+                            trCmd.Parameters.AddWithValue("@LZL_ANG_ANR", andAnr);
+                            trCmd.Parameters.AddWithValue("@LZL_LFS", lfs);
+                            using (SqlDataReader trReader = trCmd.ExecuteReader())
+                            {
+                                while (trReader.Read())
+                                {
+                                    SalesOLDetails adetail = new SalesOLDetails();
+                                    transfer.Details.Add(adetail);
+                                    adetail.WAC = Logging.strToDoubleDef(trReader["COST"].ToString(), 0);
+                                    adetail.LineNo = Convert.ToInt32(trReader["LZL_ZNR"]);
+                                    adetail.Qty = Logging.strToDoubleDef(trReader["QTY"].ToString(), 0);
+                                    adetail.RetailPrice = Logging.strToDoubleDef(trReader["RT_PRICE"].ToString(), 0);
+                                    adetail.SkuId = Convert.ToInt32(trReader["SKU_ID"]);
+                                    adetail.TransferNo = transfer.TrasferNo;
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(transferJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(origin.ToString(), andAnr.ToString(),
+                            lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "SALESOL", Logging.strToInt64Def(dcSetup.SaleOnLineNZUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.SaleOnLineQueueName);
+                            updateDaasExport(origin.ToString(), andAnr.ToString(), lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "SALESOL", md5Contents, ersConnection);
+                        }
+
+
+                    }
+
+                }
+            }
+
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.SaleOnLineNZUpdate = snow;
+            dcSetup.resetOnLineSalesNZDateRange();
+
+
+
+
+        }
+
+
+
+        private void getSalesOnLine(SqlConnection ersConnection)
+        {
+            Logging.WriteLog("Starting getSalesOnLine");
+            String lastUpdate = dcSetup.SaleOnLineUpdate ;
+            if (lastUpdate.Equals("0") || lastUpdate.Equals(""))
+            {
+                String iiSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALESOL' ";
+                using (SqlCommand cmd = new SqlCommand(iiSql, ersConnection))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            if (lastUpdate.Length >= 8)
+            {
+                lastUpdate = lastUpdate.Substring(0, 8);
+            }
+            int iLastUpdate = Logging.strToIntDef(lastUpdate, 0);
+            int initialdate = dcSetup.SalesOnLineInitialDate;
+
+            int dateFrom = dcSetup.SalesOnLineFromDate;
+            int dateTo = dcSetup.SalesOnLineToDate;
+
+            String top10 = " ";
+            if (dcSetup.ResultSet > 0)
+            {
+                top10 = " top " + dcSetup.ResultSet.ToString();
+            }
+
+            if (dateFrom > 0 || dateTo > 0)
+            {
+                String rSql = "delete from " + DaasExportTable + " where DAAS_SET_NAME = 'SALESOL' and DAAS_KEY4 >= @mindate and DAAS_KEY4 <= @maxDate  ";
+                using (SqlCommand cmd = new SqlCommand(rSql, ersConnection))
+                {
+                    cmd.Parameters.AddWithValue("@mindate", dateFrom.ToString());
+                    cmd.Parameters.AddWithValue("@maxDate", dateTo.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+            }
+
+            String anSql = "select " + top10 + " LFS_ORIGNR, LFS_ANG_ANR, LFS_LFS, cast(LFS_ORIGNR as varchar) + '-' +  cast(LFS_ANG_ANR as varchar) + '-' + cast(LFS_LFS as varchar) [TRANSFER_NO], " +
+                " LFS_VONNR[FROM_STORE], LFS_KNR[TO_STORE], LFS_CLOG_DATE, LFS_DATLFS, LFS_ULOG_DATE, " +
+                " case  " +
+                "   when LFS_STATUS = 0 then 'Standard delivery note' " +
+                "   when LFS_STATUS = 1 then 'Delivery note being delivered' " +
+                "   when LFS_STATUS = 2 then 'Delivery note was delivered' " +
+                "   when LFS_STATUS = 3 then 'Delivery note back from delivery (branch)' " +
+                "   else '' " +
+                " end[LFS_STATUS_T], LFS_TEXT, LFS_STATUS " +
+                " FROM V_LIEFHEAD " +
+                " where  LFS_TEXT LIKE '%ODO_%' and LFS_TEXT LIKE 'ODS_%' and " +
+                //" LFS_KTYP = 6 AND LFS_STATUS = 2 and " + 
+                " LFS_MANDANT = 1 AND ((LFS_ULOG_DATE >= " + iLastUpdate + " and LFS_ULOG_DATE >= " + initialdate + ") or (LFS_CLOG_DATE >= " + iLastUpdate + " and LFS_CLOG_DATE >= " + initialdate + ") or (LFS_ULOG_DATE > 0 and LFS_ULOG_DATE >= " + dateFrom + " and LFS_ULOG_DATE <= " + dateTo + "  )  )";
+            using (SqlCommand cmd = new SqlCommand(anSql, ersConnection))
+            {
+                cmd.CommandTimeout = 1200;
+                using (SqlDataReader areader = cmd.ExecuteReader())
+                {
+                    while (areader.Read())
+                    {
+                        SalesOLJson transferJson = new SalesOLJson();
+                        SalesOLHeader transfer = new SalesOLHeader();
+                        transferJson.SalesOnLineHeader = transfer;
+
+                        String atext = areader["LFS_TEXT"].ToString();
+
+                        String[] theFields = atext.Split('|');
+                        String odShipment = "";
+                        String odOrder = "";
+                        String odExternalOrder = "";
+
+                        try
+                        {
+                            odShipment = theFields[0].Substring(4);
+                        }
+                        catch { }
+                        try
+                        {
+                            odOrder = theFields[1].Substring(4);
+                        }
+                        catch { }
+                        try
+                        {
+                            odExternalOrder = theFields[2].Substring(4);
+                        }
+                        catch { }
+
+                        transfer.ODShipmentId = odShipment;
+                        transfer.ODOrderId = odOrder;
+                        transfer.ODExternalOrderId = odExternalOrder;
+
+                        transfer.CreationDate = Convert.ToInt32(areader["LFS_CLOG_DATE"]);
+                        transfer.DespatchDate = Convert.ToInt32(areader["LFS_DATLFS"]);
+                        transfer.FromStore = Convert.ToInt32(areader["FROM_STORE"]);
+                        transfer.ToStore = Convert.ToInt32(areader["TO_STORE"]);
+                        transfer.TrasferNo = areader["TRANSFER_NO"].ToString();
+                        transfer.Details = new List<SalesOLDetails>();
+                        transfer.Status_Id = Logging.strToIntDef(areader["LFS_STATUS"].ToString(), 0);
+                        transfer.Status = areader["LFS_STATUS_T"].ToString();
+
+                        int origin = Convert.ToInt32(areader["LFS_ORIGNR"]);
+                        int andAnr = Convert.ToInt32(areader["LFS_ANG_ANR"]);
+                        int lfs = Convert.ToInt32(areader["LFS_LFS"]);
+
+                        String trSql = "select  LZL_ZNR, LZL_REFNR[SKU_ID], LZL_MENGE [QTY] , " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_EKDM = 0 THEN LZL_EEK " +
+                            "   ELSE LZL_STAT_EKDM " +
+                            " END[COST], " +
+                            " CASE " +
+                            "   WHEN LZL_STAT_VKDM = 0 THEN LZL_EVKB " +
+                            "   ELSE LZL_STAT_VKDM " +
+                            " END[RT_PRICE] " +
+                            " from LIEFZEIL " +
+                            " where LZL_MANDANT = 1 AND LZL_REFNR <> 0  AND LZL_ORIGNR = @LZL_ORIGNR AND LZL_ANG_ANR = @LZL_ANG_ANR AND LZL_LFS = @LZL_LFS ";
+                        using (SqlCommand trCmd = new SqlCommand(trSql, ersConnection))
+                        {
+                            trCmd.Parameters.AddWithValue("@LZL_ORIGNR", origin);
+                            trCmd.Parameters.AddWithValue("@LZL_ANG_ANR", andAnr);
+                            trCmd.Parameters.AddWithValue("@LZL_LFS", lfs);
+                            using (SqlDataReader trReader = trCmd.ExecuteReader())
+                            {
+                                while (trReader.Read())
+                                {
+                                    SalesOLDetails adetail = new SalesOLDetails();
+                                    transfer.Details.Add(adetail);
+                                    adetail.WAC = Logging.strToDoubleDef(trReader["COST"].ToString(), 0);
+                                    adetail.LineNo = Convert.ToInt32(trReader["LZL_ZNR"]);
+                                    adetail.Qty = Logging.strToDoubleDef(trReader["QTY"].ToString(), 0);
+                                    adetail.RetailPrice = Logging.strToDoubleDef(trReader["RT_PRICE"].ToString(), 0);
+                                    adetail.SkuId = Convert.ToInt32(trReader["SKU_ID"]);
+                                    adetail.TransferNo = transfer.TrasferNo;
+                                }
+                            }
+                        }
+
+                        String ajsonStr = SimpleJson.SerializeObject(transferJson).ToString();
+                        String md5Contents = Logging.CreateMD5(ajsonStr);
+
+
+                        String storedMd5 = getMd5(origin.ToString(), andAnr.ToString(),
+                            lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "SALESOL", Logging.strToInt64Def(dcSetup.SaleOnLineUpdate, 0), ersConnection);
+
+                        if (!md5Contents.Equals(storedMd5))
+                        {
+                            Logging.WriteDebug("JSON " + SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.Debug);
+                            SendNewMessageQueue(SimpleJson.SerializeObject(transferJson).ToString(), dcSetup.SaleOnLineQueueName );
+                            updateDaasExport(origin.ToString(), andAnr.ToString(), lfs.ToString(), areader["LFS_CLOG_DATE"].ToString(), "1", "SALESOL", md5Contents, ersConnection);
+                        }
+
+
+                    }
+
+                }
+            }
+
+
+            DateTime anow = DateTime.Now;
+            String snow = anow.ToString("yyyyMMddhhmmss");
+            dcSetup.SaleOnLineUpdate = snow;
+            dcSetup.resetOnLineSalesDateRange ();
+
+
 
 
         }
@@ -1902,11 +2238,14 @@ namespace PolitixDaas
                 "    ELSE LAG_LETZTERVERKAUF " +
                 " END[UPDATED_DATE], " +
 
-                " LAG_BESTAND  + ISNULL(LGD_DELTA, 0)[LAG_BESTAND], LAG_CLOG_DATE  " +
+                " LAG_BESTAND  + ISNULL(LGD_DELTA, 0)[LAG_BESTAND], LAG_CLOG_DATE, ISNULL(LBD_ULOG_DATE, 0)[LBD_ULOG_DATE]  " +
                 " FROM V_LAGER " +
                 " JOIN ARTIKEL ON ART_MANDANT = 1 AND ART_REFNUMMER = LAG_REFNUMMER " + 
                 " LEFT JOIN (SELECT LGD_REFNUMMER, LGD_FILIALE, SUM(LGD_DELTA)[LGD_DELTA] FROM  V_LAGDELTA WHERE LGD_MANDANT = 1 AND LGD_TYP <> 2 GROUP BY  LGD_REFNUMMER, LGD_FILIALE)TBL " + 
-                "    ON LGD_REFNUMMER = LAG_REFNUMMER AND LGD_FILIALE = LAG_FILIALE " + 
+                "    ON LGD_REFNUMMER = LAG_REFNUMMER AND LGD_FILIALE = LAG_FILIALE " +
+                " LEFT JOIN(SELECT LBD_REFNUMMER, LBD_FILIALE, MAX(LBD_ULOG_DATE)[LBD_ULOG_DATE], MAX(LBD_MOVE_DATE)[LBD_MOVE_DATE] " +
+                "    FROM  LB_DATEN WHERE LBD_MANDANT = 1 AND LBD_MOVE_TYPE <> 1 GROUP BY LBD_REFNUMMER, LBD_FILIALE) PPP " +
+                "    ON LBD_REFNUMMER = LAG_REFNUMMER and LBD_FILIALE = LAG_FILIALE " +
                 " WHERE LAG_MANDANT = 1 "; 
 
             if(dcSetup.InventoryBranch != 0)
@@ -1919,7 +2258,8 @@ namespace PolitixDaas
                 anSql = anSql + " and LAG_BESTAND  + ISNULL(LGD_DELTA, 0) <> 0 ";
             } else
             {
-                anSql = anSql + " and (LAG_CLOG_DATE >= " + lastUpdate + " OR LAG_LETZTEREINGANG  >= " + lastUpdate + " OR LAG_LETZTERVERKAUF  >= " + lastUpdate + ") ";
+                anSql = anSql + " and (LAG_CLOG_DATE >= " + lastUpdate + " OR LAG_LETZTEREINGANG  >= " + lastUpdate + " OR LAG_LETZTERVERKAUF  >= " + lastUpdate + " OR " +
+                    " LBD_ULOG_DATE  >= " + lastUpdate + ") ";
             }
 
             Logging.WriteDebug(anSql, dcSetup.Debug);
@@ -1942,6 +2282,15 @@ namespace PolitixDaas
 
                       //  inventoryLine.Inventorydate = Convert.ToInt32(areader["LAG_CLOG_DATE"]);
                         inventoryLine.Inventorydate = Convert.ToInt32(areader["UPDATED_DATE"]);
+                        if(Convert.ToInt32(areader["LBD_ULOG_DATE"]) > inventoryLine.Inventorydate)
+                        {
+                            inventoryLine.Inventorydate = Convert.ToInt32(areader["LBD_ULOG_DATE"]);
+                        }
+                        if (Convert.ToInt32(areader["LAG_CLOG_DATE"]) > inventoryLine.Inventorydate)
+                        {
+                            inventoryLine.Inventorydate = Convert.ToInt32(areader["LAG_CLOG_DATE"]);
+                        }
+
                         inventoryLine.StockOnHand = Logging.strToDoubleDef(areader["LAG_BESTAND"].ToString(), 0);
                     //    inventoryLine.StockonTransit = 0;
                         inventoryLine.WeightedAverageCost = Logging.strToDoubleDef(areader["LAG_EK_GEWICHTET"].ToString(), 0);
@@ -2296,6 +2645,10 @@ namespace PolitixDaas
 
         }
 
+        public void getSalesOnline(SqlConnection ersConnection)
+        {
+
+        }
 
 
         public void getSales(SqlConnection ersConnection)
@@ -3145,6 +3498,11 @@ namespace PolitixDaas
                 if (k == 0)
                 {
                     stdate = arow["KAS_VK_DATUM"].ToString();
+                    if(stdate.Length < 8)
+                    {
+                        return;
+                    }
+                    
                     salesJson.FuturaSale.ReceiptId = kasFiliale.ToString() + "/" + kasKasse.ToString() + "/" + kasBonnr.ToString() + "/" + stdate;
                     theDate = stdate.Substring(0, 4) + "-" + stdate.Substring(4, 2) + "-" + stdate.Substring(6, 2);
                     timestamp = theDate + "T" + thetime;
@@ -3558,6 +3916,17 @@ namespace PolitixDaas
                 {
                     getShipmentsNZ(ersConnectionNZ);
                 }
+
+                if (!dcSetup.BlockSalesOnLine)
+                {
+                    getSalesOnLine(ersConnection);
+                }
+
+                if (!dcSetup.BlockSalesOnLineNZ)
+                {
+                    getSalesOnLineNZ(ersConnectionNZ);
+                }
+
 
 
                 ACounter++;

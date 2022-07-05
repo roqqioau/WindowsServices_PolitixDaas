@@ -13,6 +13,7 @@ namespace PolitixDaas
         public int IntervalMins;
 
         public String ActiveMQUrl { get; private set; }
+        public String SaleOnLineQueueName { get; private set; }
         public String ShipmentsQueueName { get; set; }
         public String OrdersQueueName { get; set; }
         public String LocationsQueueName { get; private set; }
@@ -41,6 +42,8 @@ namespace PolitixDaas
         public String SqlPassword { get; private set; }
         public bool SqlOsAuthentication { get; private set; }
         public int Debug { get; private set; }
+        public int SalesOnLineNZInitialDate { get; private set; }
+        public int SalesOnLineInitialDate { get;private set;}
         public int MinSendDate { get; private set; }
         public int MinSendDateNZ { get; private set; }
         public int PermanentMarkDownsInitialDate { get; private set; }
@@ -64,7 +67,10 @@ namespace PolitixDaas
         public int MarkdownsNZToDate { get; set; }
         public int OrdersFromDate { get; set; }
         public int OrdersToDate { get; set; }
-
+        public int SalesOnLineFromDate { get; set; }
+        public int SalesOnLineToDate{ get; set; }
+        public int SalesOnLineNZFromDate { get; set; }
+        public int SalesOnLineNZToDate { get; set; }
         public int TransfersFromHOFromDate { get; set; }
         public int TransfersFromHOToDate { get; set; }
         public int TransfersFromHONZFromDate { get; set; }
@@ -96,6 +102,8 @@ namespace PolitixDaas
         public bool BlockPricesNZ { get; set; }
         public bool BlockSales { get; set; }
         public bool BlockSalesNZ { get; set; }
+        public bool BlockSalesOnLine { get; set; }
+        public bool BlockSalesOnLineNZ { get; set; }
         public bool BlockPermanentMarkdowns { get; set; }
         public bool BlockPermanentMarkdownsNZ { get; set; }
         public bool BlockInventory { get; set; }
@@ -430,6 +438,49 @@ namespace PolitixDaas
             return anIni.readString("System", "SaleUpdate", "");
         }
 
+
+        public String SaleOnLineUpdate
+        {
+            get => getSaleOnLineUpdate();
+            set => setSaleOnLineUpdate(value);
+        }
+
+        private void setSaleOnLineUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "SaleOnLineUpdate", value);
+        }
+
+        private String getSaleOnLineUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "SaleOnLineUpdate", "");
+        }
+
+        public String SaleOnLineNZUpdate
+        {
+            get => getSaleOnLineNZUpdate();
+            set => setSaleOnLineNZUpdate(value);
+        }
+
+        private void setSaleOnLineNZUpdate(String value)
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("System", "SaleOnLineNZUpdate", value);
+        }
+
+        private String getSaleOnLineNZUpdate()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            return anIni.readString("System", "SaleOnLineNZUpdate", "");
+        }
+
+
+
         public String SaleUpdateNZ
         {
             get => getSaleUpdateNZ();
@@ -634,6 +685,7 @@ namespace PolitixDaas
             TransfersFromHOQueueName = anIni.readString("Queues", "TransfersFromHO", "");
             TransfersFromBQueueName = anIni.readString("Queues", "TransfersFromBranch", "");
             ShipmentsQueueName = anIni.readString("Queues", "Shipments", "");
+            SaleOnLineQueueName = anIni.readString("Queues", "SaleOnLine", "");
             DateFrom = anIni.readInteger("SYSTEM", "SalesDateFrom", 0);
             DateTo = anIni.readInteger("SYSTEM", "SalesDateTo", 0);
             DateFromNZ = anIni.readInteger("SYSTEM", "SalesNZDateFrom", 0);
@@ -670,7 +722,31 @@ namespace PolitixDaas
             TransfersFromBranchesNZFromDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesNZFromDate", 0);
             TransfersFromBranchesNZToDate = anIni.readInteger("SYSTEM", "TransfersFromBranchesNZToDate", 0);
 
+            SalesOnLineFromDate = anIni.readInteger("SYSTEM", "SalesOnLineFromDate", 0);
+            SalesOnLineToDate = anIni.readInteger("SYSTEM", "SalesOnLineToDate", 0);
+            SalesOnLineNZFromDate = anIni.readInteger("SYSTEM", "SalesOnLineNZFromDate", 0);
+            SalesOnLineNZToDate = anIni.readInteger("SYSTEM", "SalesOnLineNZToDate", 0);
         }
+
+        public void resetOnLineSalesDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "SalesOnLineFromDate", "0");
+            anIni.writeString("SYSTEM", "SalesOnLineToDate", "0");
+
+        }
+
+
+        public void resetOnLineSalesNZDateRange()
+        {
+            String apath = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, ".ini");
+            RdeIniFile.Rde_IniFile anIni = new RdeIniFile.Rde_IniFile(apath);
+            anIni.writeString("SYSTEM", "SalesOnLineNZFromDate", "0");
+            anIni.writeString("SYSTEM", "SalesOnLineNZToDate", "0");
+
+        }
+
 
         public void resetInventoryAdjustmentDateRange()
         {

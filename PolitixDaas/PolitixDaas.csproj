@@ -76,6 +76,7 @@
     </Compile>
     <Compile Include="RTransfersJson.cs" />
     <Compile Include="SalesJson.cs" />
+    <Compile Include="SalesOLJson.cs" />
     <Compile Include="SelfInstaller.cs" />
     <Compile Include="Service1.cs">
       <SubType>Component</SubType>
