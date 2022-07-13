@@ -1185,7 +1185,7 @@ namespace PolitixDaas
                 "   WHEN FTK_TYP = 6 THEN 'INTER BRANCH TRANSFERS' " +
                 "   else '' " +
                 " end[FTK_TYP], " +
-                " (select isnull(max(KAS_VK_DATUM), 0) from KASSTRNS where KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
+                " (select isnull(max(KAS_VK_DATUM), 0) from V_KASSTRNS where KAS_MANDANT = 1 AND KAS_FILIALE = FTK_REF_FILIALE AND KAS_KASSE = FTK_REF_KASSE AND KAS_BONNR= FTK_REF_NUMMER AND FTK_LIEFERDATUM >= KAS_VK_DATUM) [DN_DATE], " +
                 " FTK_TYP [FTK_TYP_NO], FTK_LIEFERSCHEIN [DELIVERY_NOTE], " +
                 " CASE " +
                 " WHEN FTK_STATUS = 2 THEN FTK_LIEFERDATUM " +

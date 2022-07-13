@@ -603,6 +603,12 @@ namespace PolitixDaas
             BlockSalesNZ = sBlockSalesNZ.Equals("1") || sBlockSalesNZ.ToUpper().Equals("Y");
 
 
+            String sBlockSalesOnLine = anIni.readString("SYSTEM", "BlockSalesOnLine", "");
+            BlockSalesOnLine = sBlockSalesOnLine.Equals("1") || sBlockSalesOnLine.ToUpper().Equals("Y");
+
+            String sBlockSalesOnLineNZ = anIni.readString("SYSTEM", "BlockSalesOnLineNZ", "");
+            BlockSalesOnLineNZ = sBlockSalesOnLineNZ.Equals("1") || sBlockSalesOnLineNZ.ToUpper().Equals("Y");
+
             String sBlockPermanentMarkdowns = anIni.readString("SYSTEM", "BlockPermanentMarkdowns", "");
             BlockPermanentMarkdowns = sBlockPermanentMarkdowns.Equals("1") || sBlockPermanentMarkdowns.ToUpper().Equals("Y");
 
